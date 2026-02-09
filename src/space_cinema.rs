@@ -96,4 +96,8 @@ impl CinemaScraper for SpaceCinemaScraper {
             })
             .collect())
     }
+
+    fn rss_filename(&self) -> String {
+        format!("space_cinema_{}.xml", self.cinema_id)
+    }
 }

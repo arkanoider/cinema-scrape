@@ -94,5 +94,9 @@ impl CinemaScraper for EnricoPizzutiScraper {
 
         Ok(films)
     }
+
+    fn rss_filename(&self) -> String {
+        "enrico_pizzuti.xml".to_string()
+    }
 }
 

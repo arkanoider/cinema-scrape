@@ -94,4 +94,8 @@ impl CinemaScraper for CinemaEderaScraper {
 
         Ok(films)
     }
+
+    fn rss_filename(&self) -> String {
+        "cinema_edera.xml".to_string()
+    }
 }

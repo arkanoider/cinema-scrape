@@ -2,10 +2,11 @@ mod cinema_edera;
 mod enrico_pizzuti;
 mod space_cinema;
 
-use cinema_scrape::{CinemaScraper, Film};
+use cinema_scrape::{generate_rss, CinemaScraper, Film};
 use cinema_edera::CinemaEderaScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
 use space_cinema::SpaceCinemaScraper;
+use std::fs;
 
 fn print_films(films: &[Film]) {
     for film in films {
@@ -42,7 +43,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let space_scraper = SpaceCinemaScraper::new(1009, "2026-02-09T00:00:00".to_string());
     space_scraper.warm_up(&client).await?;
     match space_scraper.fetch_films(&client).await {
-        Ok(films) => print_films(&films),
+        Ok(films) => {
+            print_films(&films);
+            // Generate RSS feed
+            let rss_xml = generate_rss(
+                &films,
+                "The Space Cinema - Silea",
+                "https://www.thespacecinema.it/cinema/silea/al-cinema",
+                "Film in programmazione al The Space Cinema di Silea",
+            )?;
+            let filename = space_scraper.rss_filename();
+            fs::write(&filename, rss_xml)?;
+            println!("✓ RSS feed saved to: {}\n", filename);
+        }
         Err(e) => eprintln!("Error fetching Space Cinema: {}", e),
     }
 
@@ -52,7 +65,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "https://www.cinemaedera.it/i-film-della-settimana.html".to_string(),
     );
     match edera_scraper.fetch_films(&client).await {
-        Ok(films) => print_films(&films),
+        Ok(films) => {
+            print_films(&films);
+            // Generate RSS feed
+            let rss_xml = generate_rss(
+                &films,
+                "Cinema Multisala Edera",
+                "https://www.cinemaedera.it/i-film-della-settimana.html",
+                "Film in programmazione al Cinema Multisala Edera",
+            )?;
+            let filename = edera_scraper.rss_filename();
+            fs::write(&filename, rss_xml)?;
+            println!("✓ RSS feed saved to: {}\n", filename);
+        }
         Err(e) => eprintln!("Error fetching Cinema Edera: {}", e),
     }
 
@@ -61,9 +86,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pizzuti_scraper =
         EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
     match pizzuti_scraper.fetch_films(&client).await {
-        Ok(films) => print_films(&films),
+        Ok(films) => {
+            print_films(&films);
+            // Generate RSS feed
+            let rss_xml = generate_rss(
+                &films,
+                "Circolo Cinematografico Enrico Pizzuti",
+                "https://www.enricopizzuti.it/",
+                "Film in programmazione al Circolo Cinematografico Enrico Pizzuti - Cinema Turroni Oderzo",
+            )?;
+            let filename = pizzuti_scraper.rss_filename();
+            fs::write(&filename, rss_xml)?;
+            println!("✓ RSS feed saved to: {}\n", filename);
+        }
         Err(e) => eprintln!("Error fetching Enrico Pizzuti: {}", e),
     }
 
+    println!("=== All RSS feeds generated successfully! ===");
     Ok(())
 }
