@@ -47,6 +47,19 @@ impl CinemaScraper for SpaceCinemaScraper {
         }
 
         #[derive(Debug, Deserialize)]
+        #[allow(non_snake_case)]
+        struct ApiSession {
+            startTime: String,
+            endTime: String,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct ShowingGroup {
+            sessions: Option<Vec<ApiSession>>,
+        }
+
+        #[derive(Debug, Deserialize)]
+        #[allow(non_snake_case)]
         struct ApiFilm {
             filmTitle: String,
             filmUrl: String,
@@ -55,6 +68,36 @@ impl CinemaScraper for SpaceCinemaScraper {
             releaseDate: String,
             runningTime: i32,
             synopsisShort: String,
+            showingGroups: Option<Vec<ShowingGroup>>,
+        }
+
+        /// Extract "HH:MM" from ISO datetime like "2026-02-09T22:45:00"
+        fn time_part(s: &str) -> String {
+            s.split('T')
+                .nth(1)
+                .and_then(|t| t.get(..5))
+                .unwrap_or(s)
+                .to_string()
+        }
+
+        /// Format ISO date "2026-02-09" as "09 Febbraio 2026"
+        fn format_date_italian(s: &str) -> String {
+            const MONTHS: [&str; 12] = [
+                "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+            ];
+            let date_str = s.get(..10).unwrap_or("");
+            let parts: Vec<&str> = date_str.split('-').collect();
+            if parts.len() != 3 {
+                return s.to_string();
+            }
+            let year = parts[0];
+            let month: usize = parts[1].parse().unwrap_or(0);
+            let day = parts[2];
+            if month == 0 || month > 12 {
+                return s.to_string();
+            }
+            format!("{} {} {}", day, MONTHS[month - 1], year)
         }
 
         let resp = client
@@ -82,19 +125,36 @@ impl CinemaScraper for SpaceCinemaScraper {
         let body = resp.text().await?;
         let parsed: ApiResponse = serde_json::from_str(&body)?;
 
-        Ok(parsed
+        let films: Vec<Film> = parsed
             .result
             .into_iter()
-            .map(|f| Film {
-                title: f.filmTitle,
-                url: f.filmUrl,
-                poster_url: Some(f.posterImageSrc),
-                cast: Some(f.cast),
-                release_date: Some(f.releaseDate),
-                running_time: Some(f.runningTime as u32),
-                synopsis: Some(f.synopsisShort),
+            .map(|f| {
+                let showtimes = f.showingGroups.map(|groups| {
+                    groups
+                        .into_iter()
+                        .filter_map(|g| g.sessions)
+                        .flatten()
+                        .map(|s| {
+                            let date = format_date_italian(&s.startTime);
+                            format!("{} ore {} - {}", date, time_part(&s.startTime), time_part(&s.endTime))
+                        })
+                        .collect::<Vec<_>>()
+                }).filter(|v: &Vec<String>| !v.is_empty());
+
+                Film {
+                    title: f.filmTitle,
+                    url: f.filmUrl,
+                    poster_url: Some(f.posterImageSrc),
+                    cast: Some(f.cast),
+                    release_date: Some(f.releaseDate),
+                    running_time: Some(f.runningTime as u32),
+                    synopsis: Some(f.synopsisShort),
+                    showtimes,
+                }
             })
-            .collect())
+            .collect();
+
+        Ok(films)
     }
 
     fn rss_filename(&self) -> String {

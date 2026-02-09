@@ -27,6 +27,11 @@ fn print_films(films: &[Film]) {
         if let Some(ref synopsis) = film.synopsis {
             println!("SYNOPSIS    : {}", synopsis);
         }
+        if let Some(ref showtimes) = film.showtimes {
+            for s in showtimes {
+                println!("ORARIO      : {}", s);
+            }
+        }
         println!();
     }
 }

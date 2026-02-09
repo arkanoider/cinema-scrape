@@ -89,6 +89,7 @@ impl CinemaScraper for EnricoPizzutiScraper {
                 release_date,
                 running_time: None,
                 synopsis,
+                showtimes: None,
             });
         }
 

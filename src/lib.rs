@@ -11,6 +11,8 @@ pub struct Film {
     pub release_date: Option<String>,
     pub running_time: Option<u32>, // in minutes
     pub synopsis: Option<String>,
+    /// Showtimes as "Lunedì 9 Febbraio ore 17:15", "Martedì 10 Febbraio ore 19:10", etc.
+    pub showtimes: Option<Vec<String>>,
 }
 
 /// Trait that all cinema scrapers must implement
@@ -59,6 +61,12 @@ pub fn generate_rss(
         
         if let Some(ref poster) = film.poster_url {
             description_parts.push(format!("<img src=\"{}\" alt=\"Poster\" />", poster));
+        }
+
+        if let Some(ref showtimes) = film.showtimes {
+            if !showtimes.is_empty() {
+                description_parts.push(format!("Orari: {}", showtimes.join(", ")));
+            }
         }
 
         let description = if description_parts.is_empty() {
