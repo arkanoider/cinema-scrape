@@ -1,90 +1,68 @@
-use reqwest::header;
-use serde::Deserialize;
+mod cinema_edera;
+mod enrico_pizzuti;
+mod space_cinema;
 
-#[derive(Debug, Deserialize)]
-struct ApiResponse {
-    result: Vec<Film>,
-}
+use cinema_scrape::{CinemaScraper, Film};
+use cinema_edera::CinemaEderaScraper;
+use enrico_pizzuti::EnricoPizzutiScraper;
+use space_cinema::SpaceCinemaScraper;
 
-#[derive(Debug, Deserialize)]
-struct Film {
-    filmUrl: String,
-    filmAttributes: Vec<serde_json::Value>,
-    posterImageSrc: String,
-    cast: String,
-    releaseDate: String,
-    runningTime: i32,
-    synopsisShort: String,
-    filmTitle: String,
+fn print_films(films: &[Film]) {
+    for film in films {
+        println!("TITLE       : {}", film.title);
+        println!("URL         : {}", film.url);
+        if let Some(ref poster) = film.poster_url {
+            println!("POSTER      : {}", poster);
+        }
+        if let Some(ref cast) = film.cast {
+            println!("CAST        : {}", cast);
+        }
+        if let Some(ref date) = film.release_date {
+            println!("RELEASE DATE: {}", date);
+        }
+        if let Some(time) = film.running_time {
+            println!("RUNTIME     : {} min", time);
+        }
+        if let Some(ref synopsis) = film.synopsis {
+            println!("SYNOPSIS    : {}", synopsis);
+        }
+        println!();
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let api_url = "https://www.thespacecinema.it/api/microservice/showings/cinemas/1009/films";
-
-    // Build a client with cookie store so it remembers Set-Cookie headers.
+    // Build a client with cookie store
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .build()?;
 
-    // 1) Warm-up request: hit a normal page to obtain fresh cookies/tokens.
-    client
-        .get("https://www.thespacecinema.it/")
-        .header(
-            header::USER_AGENT,
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-             AppleWebKit/537.36 (KHTML, like Gecko) \
-             Chrome/143.0.0.0 Safari/537.36",
-        )
-        .send()
-        .await?
-        .error_for_status()?;
+    // Example 1: Space Cinema (JSON API)
+    println!("=== Fetching from The Space Cinema ===\n");
+    let space_scraper = SpaceCinemaScraper::new(1009, "2026-02-09T00:00:00".to_string());
+    space_scraper.warm_up(&client).await?;
+    match space_scraper.fetch_films(&client).await {
+        Ok(films) => print_films(&films),
+        Err(e) => eprintln!("Error fetching Space Cinema: {}", e),
+    }
 
-    // 2) Now call the JSON API; cookies are attached automatically.
-    let resp = client
-        .get(api_url)
-        .header(
-            header::USER_AGENT,
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-             AppleWebKit/537.36 (KHTML, like Gecko) \
-             Chrome/143.0.0.0 Safari/537.36",
-        )
-        .header(
-            header::ACCEPT,
-            "application/json,text/javascript,*/*;q=0.1",
-        )
-        .query(&[
-            ("showingDate", "2026-02-09T00:00:00"),
-            ("minEmbargoLevel", "3"),
-            ("includesSession", "true"),
-            ("includeSessionAttributes", "true"),
-        ])
-        .send()
-        .await?
-        .error_for_status()?;
+    // Example 2: Cinema Edera (HTML scraping)
+    println!("\n=== Fetching from Cinema Edera ===\n");
+    let edera_scraper = CinemaEderaScraper::new(
+        "https://www.cinemaedera.it/i-film-della-settimana.html".to_string(),
+    );
+    match edera_scraper.fetch_films(&client).await {
+        Ok(films) => print_films(&films),
+        Err(e) => eprintln!("Error fetching Cinema Edera: {}", e),
+    }
 
-    let body = resp.text().await?;
-
-    let parsed: ApiResponse = match serde_json::from_str(&body) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Failed to parse JSON: {e}");
-            eprintln!("Raw response body (first 500 chars):");
-            let preview: String = body.chars().take(500).collect();
-            eprintln!("{}", preview);
-            return Ok(());
-        }
-    };
-
-    for film in parsed.result {
-        println!("TITLE       : {}", film.filmTitle);
-        println!("URL         : {}", film.filmUrl);
-        println!("POSTER      : {}", film.posterImageSrc);
-        println!("CAST        : {}", film.cast);
-        println!("RELEASE DATE: {}", film.releaseDate);
-        println!("RUNTIME     : {} min", film.runningTime);
-        println!("SYNOPSIS    : {}", film.synopsisShort);
-        println!();
+    // Example 3: Circolo Enrico Pizzuti (HTML scraping)
+    println!("\n=== Fetching from Circolo Enrico Pizzuti ===\n");
+    let pizzuti_scraper =
+        EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
+    match pizzuti_scraper.fetch_films(&client).await {
+        Ok(films) => print_films(&films),
+        Err(e) => eprintln!("Error fetching Enrico Pizzuti: {}", e),
     }
 
     Ok(())
