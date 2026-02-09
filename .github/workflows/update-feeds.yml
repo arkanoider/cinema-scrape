@@ -1,0 +1,38 @@
+# Generate RSS feeds and commit them so they can be used as hosted feeds.
+# Feeds are available at: https://raw.githubusercontent.com/OWNER/REPO/BRANCH/<filename>.xml
+name: Update RSS feeds
+
+permissions:
+  contents: write  # allow push of updated feed files
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Allow manual run from Actions tab
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@2
+
+      - name: Generate feeds
+        run: cargo run --release
+        # SHOWING_DATE not set → app uses today for Space Cinema
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add feeds.xml
+          git diff --staged --quiet || (git commit -m "chore: update RSS feed [skip ci]" && git push)
