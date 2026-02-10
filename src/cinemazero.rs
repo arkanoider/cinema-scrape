@@ -3,6 +3,7 @@ use reqwest::{Client, header};
 use scraper::{Html, Selector};
 
 /// Scraper for Cinemazero (homepage "Il programma di oggi" section).
+// Fetches daily program and parses detail pages.
 pub struct CinemazeroScraper {
     url: String,
 }
