@@ -180,6 +180,11 @@ impl CinemaScraper for CinemazeroScraper {
                 Some(synopsis_lines.join(" "))
             };
 
+            // Clean synopsis of control characters if present
+            if let Some(ref mut s) = synopsis {
+                *s = s.chars().filter(|c| !c.is_control()).collect();
+            }
+
             // Fallback: if we failed to detect a synopsis from the linear text,
             // pick the longest <p> that looks like a plot (long text, with punctuation),
             // excluding obvious metadata blocks.
@@ -216,7 +221,9 @@ impl CinemaScraper for CinemazeroScraper {
                     }
                 }
                 if let Some(text) = best {
-                    synopsis = Some(text);
+                    // Clean text of control characters
+                    let clean_text: String = text.chars().filter(|c| !c.is_control()).collect();
+                    synopsis = Some(clean_text);
                 }
             }
 
