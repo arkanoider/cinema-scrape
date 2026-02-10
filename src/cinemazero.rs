@@ -136,33 +136,34 @@ impl CinemaScraper for CinemazeroScraper {
 
             for s in all_text.iter().skip(title_idx + 1) {
                 let lower = s.to_lowercase();
-                if lower.starts_with("genere ") {
-                    genere = Some(
-                        s["Genere".len()..]
-                            .trim_matches(|c: char| c == ':' || c.is_whitespace())
-                            .to_string(),
-                    );
-                    continue;
-                }
-                if lower.starts_with("regia ") {
-                    regia = Some(
-                        s["Regia".len()..]
-                            .trim_matches(|c: char| c == ':' || c.is_whitespace())
-                            .to_string(),
-                    );
-                    continue;
-                }
-                if lower.starts_with("cast") {
-                    // Handle both "Cast " and "Cast  Foo..."
-                    let after = s.trim_start_matches("Cast").trim_start_matches(':').trim();
-                    if !after.is_empty() {
-                        cast_line = Some(after.to_string());
+
+                // Metadata headings: Genere / Regia / Cast
+                if lower.starts_with("genere ")
+                    || lower.starts_with("regia ")
+                    || lower.starts_with("cast")
+                {
+                    if lower.starts_with("genere ") {
+                        genere = Some(
+                            s["Genere".len()..]
+                                .trim_matches(|c: char| c == ':' || c.is_whitespace())
+                                .to_string(),
+                        );
+                    } else if lower.starts_with("regia ") {
+                        regia = Some(
+                            s["Regia".len()..]
+                                .trim_matches(|c: char| c == ':' || c.is_whitespace())
+                                .to_string(),
+                        );
+                    } else {
+                        // Handle both "Cast " and "Cast  Foo..."
+                        let after = s.trim_start_matches("Cast").trim_start_matches(':').trim();
+                        if !after.is_empty() {
+                            cast_line = Some(after.to_string());
+                        }
                     }
                     continue;
                 }
-                if lower.contains("programmazione e orari") {
-                    break;
-                }
+
                 // Anything between title and metadata headings is likely synopsis.
                 synopsis_lines.push(s.clone());
             }
