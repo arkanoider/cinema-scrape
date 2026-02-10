@@ -1,9 +1,11 @@
 mod cinema_edera;
+mod cinemazero;
 mod enrico_pizzuti;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
+use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
 use space_cinema::SpaceCinemaScraper;
 use std::fs;
@@ -50,11 +52,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "https://www.cinemaedera.it/i-film-della-settimana.html".to_string(),
     );
     let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
+    let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
 
     // Fetch all three cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
     const EDERA_NAME: &str = "Cinema Multisala Edera";
     const PIZZUTI_NAME: &str = "Circolo Enrico Pizzuti";
+    const CINEMAZERO_NAME: &str = "Cinemazero Pordenone";
 
     println!("=== Fetching from The Space Cinema ===\n");
     space_scraper.warm_up(&client).await?;
@@ -72,15 +76,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_default();
     print_films(&pizzuti_films);
 
+    println!("\n=== Fetching from Cinemazero Pordenone ===\n");
+    let cinemazero_films = cinemazero_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&cinemazero_films);
+
     // Single merged RSS with cinema names as categories
     let rss_xml = generate_rss_merged(
         "Film in programmazione",
         "https://github.com/", // optional: set to your repo or a landing page
-        "RSS unificato: The Space Cinema (Silea), Cinema Multisala Edera, Circolo Enrico Pizzuti.",
+        "RSS unificato: The Space Cinema (Silea), Cinema Multisala Edera, Circolo Enrico Pizzuti, Cinemazero Pordenone.",
         &[
             (SPACE_NAME, space_films.as_slice()),
             (EDERA_NAME, edera_films.as_slice()),
             (PIZZUTI_NAME, pizzuti_films.as_slice()),
+            (CINEMAZERO_NAME, cinemazero_films.as_slice()),
         ],
     )?;
     let feed_path = "feeds.xml";
