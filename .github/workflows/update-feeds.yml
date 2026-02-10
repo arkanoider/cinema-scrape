@@ -24,7 +24,7 @@ jobs:
           components: rustfmt
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v3
+        uses: Swatinem/rust-cache@v2
 
       - name: Generate feeds
         run: cargo run --release
