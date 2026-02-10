@@ -137,6 +137,11 @@ impl CinemaScraper for CinemazeroScraper {
             for s in all_text.iter().skip(title_idx + 1) {
                 let lower = s.to_lowercase();
 
+                // Stop if we hit "Programmazione e orari"
+                if lower.contains("programmazione e orari") {
+                    break;
+                }
+
                 // Metadata headings: Genere / Regia / Cast
                 if lower.starts_with("genere ")
                     || lower.starts_with("regia ")
@@ -177,9 +182,10 @@ impl CinemaScraper for CinemazeroScraper {
             // Fallback: if we failed to detect a synopsis from the linear text,
             // pick the longest <p> that looks like a plot (long text, with punctuation),
             // excluding obvious metadata blocks.
-            if synopsis.is_none() {
-                if let Ok(p_sel) = Selector::parse("p") {
-                    let mut best: Option<String> = None;
+            if synopsis.is_none()
+                && let Ok(p_sel) = Selector::parse("p")
+            {
+                let mut best: Option<String> = None;
                     let mut best_len: usize = 0;
                     for p in doc.select(&p_sel) {
                         let text = p
@@ -212,7 +218,6 @@ impl CinemaScraper for CinemazeroScraper {
                         synopsis = Some(text);
                     }
                 }
-            }
 
             // Build a compact "cast" field combining genre, regia and cast.
             let mut cast_parts = Vec::new();
