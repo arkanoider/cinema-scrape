@@ -168,11 +168,51 @@ impl CinemaScraper for CinemazeroScraper {
                 synopsis_lines.push(s.clone());
             }
 
-            let synopsis = if synopsis_lines.is_empty() {
+            let mut synopsis = if synopsis_lines.is_empty() {
                 None
             } else {
                 Some(synopsis_lines.join(" "))
             };
+
+            // Fallback: if we failed to detect a synopsis from the linear text,
+            // pick the longest <p> that looks like a plot (long text, with punctuation),
+            // excluding obvious metadata blocks.
+            if synopsis.is_none() {
+                if let Ok(p_sel) = Selector::parse("p") {
+                    let mut best: Option<String> = None;
+                    let mut best_len: usize = 0;
+                    for p in doc.select(&p_sel) {
+                        let text = p
+                            .text()
+                            .map(|t| t.trim())
+                            .filter(|t| !t.is_empty())
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        let lower = text.to_lowercase();
+                        let len = text.len();
+                        if len < 80 {
+                            continue;
+                        }
+                        if lower.contains("genere")
+                            || lower.contains("regia")
+                            || lower.contains("cast")
+                            || lower.contains("programmazione e orari")
+                        {
+                            continue;
+                        }
+                        if !lower.contains('.') {
+                            continue;
+                        }
+                        if len > best_len {
+                            best_len = len;
+                            best = Some(text);
+                        }
+                    }
+                    if let Some(text) = best {
+                        synopsis = Some(text);
+                    }
+                }
+            }
 
             // Build a compact "cast" field combining genre, regia and cast.
             let mut cast_parts = Vec::new();
