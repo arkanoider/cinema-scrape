@@ -1,5 +1,5 @@
 use crate::{CinemaScraper, Film};
-use reqwest::{header, Client};
+use reqwest::{Client, header};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 
@@ -120,10 +120,9 @@ impl CinemaScraper for CinemaEderaScraper {
 
                 // All options from div.movie__option: <p><strong>Label</strong>: value</p>
                 let mut option_parts = Vec::new();
-                if let (Ok(option_sel), Ok(p_sel)) = (
-                    Selector::parse("div.movie__option"),
-                    Selector::parse("p"),
-                ) && let Some(option_div) = doc.select(&option_sel).next()
+                if let (Ok(option_sel), Ok(p_sel)) =
+                    (Selector::parse("div.movie__option"), Selector::parse("p"))
+                    && let Some(option_div) = doc.select(&option_sel).next()
                 {
                     for p in option_div.select(&p_sel) {
                         let text = p.text().collect::<String>();

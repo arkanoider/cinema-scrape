@@ -2,8 +2,8 @@ mod cinema_edera;
 mod enrico_pizzuti;
 mod space_cinema;
 
-use cinema_scrape::{generate_rss_merged, CinemaScraper, Film};
 use cinema_edera::CinemaEderaScraper;
+use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
 use enrico_pizzuti::EnricoPizzutiScraper;
 use space_cinema::SpaceCinemaScraper;
 use std::fs;
@@ -39,21 +39,17 @@ fn print_films(films: &[Film]) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build a client with cookie store
-    let client = reqwest::Client::builder()
-        .cookie_store(true)
-        .build()?;
+    let client = reqwest::Client::builder().cookie_store(true).build()?;
 
     // SHOWING_DATE env (e.g. 2026-02-09T00:00:00) or today for scheduled runs (Space Cinema)
-    let showing_date = std::env::var("SHOWING_DATE").unwrap_or_else(|_| {
-        chrono::Local::now().format("%Y-%m-%dT00:00:00").to_string()
-    });
+    let showing_date = std::env::var("SHOWING_DATE")
+        .unwrap_or_else(|_| chrono::Local::now().format("%Y-%m-%dT00:00:00").to_string());
 
     let space_scraper = SpaceCinemaScraper::new(1009, showing_date);
     let edera_scraper = CinemaEderaScraper::new(
         "https://www.cinemaedera.it/i-film-della-settimana.html".to_string(),
     );
-    let pizzuti_scraper =
-        EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
+    let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
 
     // Fetch all three cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
@@ -70,7 +66,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_films(&edera_films);
 
     println!("\n=== Fetching from Circolo Enrico Pizzuti ===\n");
-    let pizzuti_films = pizzuti_scraper.fetch_films(&client).await.unwrap_or_default();
+    let pizzuti_films = pizzuti_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
     print_films(&pizzuti_films);
 
     // Single merged RSS with cinema names as categories

@@ -48,10 +48,10 @@ fn film_description_and_pub_date(film: &Film) -> (String, Option<String>) {
     if let Some(ref poster) = film.poster_url {
         description_parts.push(format!("<img src=\"{}\" alt=\"Poster\" />", poster));
     }
-    if let Some(ref showtimes) = film.showtimes {
-        if !showtimes.is_empty() {
-            description_parts.push(format!("Orari: {}", showtimes.join(", ")));
-        }
+    if let Some(ref showtimes) = film.showtimes
+        && !showtimes.is_empty()
+    {
+        description_parts.push(format!("Orari: {}", showtimes.join(", ")));
     }
     let description = if description_parts.is_empty() {
         format!("Film: {}", film.title)
@@ -59,7 +59,10 @@ fn film_description_and_pub_date(film: &Film) -> (String, Option<String>) {
         description_parts.join("<br/>\n")
     };
     let pub_date = film.release_date.as_ref().and_then(|date_str| {
-        if date_str.contains("Febbraio") || date_str.contains("Gennaio") || date_str.contains("Marzo") {
+        if date_str.contains("Febbraio")
+            || date_str.contains("Gennaio")
+            || date_str.contains("Marzo")
+        {
             Some(chrono::Utc::now().to_rfc2822())
         } else {
             None

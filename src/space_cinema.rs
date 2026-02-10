@@ -1,5 +1,5 @@
 use crate::{CinemaScraper, Film};
-use reqwest::{header, Client};
+use reqwest::{Client, header};
 use serde::Deserialize;
 
 /// Scraper for The Space Cinema (uses JSON API)
@@ -83,8 +83,18 @@ impl CinemaScraper for SpaceCinemaScraper {
         /// Format ISO date "2026-02-09" as "09 Febbraio 2026"
         fn format_date_italian(s: &str) -> String {
             const MONTHS: [&str; 12] = [
-                "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+                "Gennaio",
+                "Febbraio",
+                "Marzo",
+                "Aprile",
+                "Maggio",
+                "Giugno",
+                "Luglio",
+                "Agosto",
+                "Settembre",
+                "Ottobre",
+                "Novembre",
+                "Dicembre",
             ];
             let date_str = s.get(..10).unwrap_or("");
             let parts: Vec<&str> = date_str.split('-').collect();
@@ -108,10 +118,7 @@ impl CinemaScraper for SpaceCinemaScraper {
                  AppleWebKit/537.36 (KHTML, like Gecko) \
                  Chrome/143.0.0.0 Safari/537.36",
             )
-            .header(
-                header::ACCEPT,
-                "application/json,text/javascript,*/*;q=0.1",
-            )
+            .header(header::ACCEPT, "application/json,text/javascript,*/*;q=0.1")
             .query(&[
                 ("showingDate", self.showing_date.as_str()),
                 ("minEmbargoLevel", "3"),
@@ -129,17 +136,25 @@ impl CinemaScraper for SpaceCinemaScraper {
             .result
             .into_iter()
             .map(|f| {
-                let showtimes = f.showingGroups.map(|groups| {
-                    groups
-                        .into_iter()
-                        .filter_map(|g| g.sessions)
-                        .flatten()
-                        .map(|s| {
-                            let date = format_date_italian(&s.startTime);
-                            format!("{} ore {} - {}", date, time_part(&s.startTime), time_part(&s.endTime))
-                        })
-                        .collect::<Vec<_>>()
-                }).filter(|v: &Vec<String>| !v.is_empty());
+                let showtimes = f
+                    .showingGroups
+                    .map(|groups| {
+                        groups
+                            .into_iter()
+                            .filter_map(|g| g.sessions)
+                            .flatten()
+                            .map(|s| {
+                                let date = format_date_italian(&s.startTime);
+                                format!(
+                                    "{} ore {} - {}",
+                                    date,
+                                    time_part(&s.startTime),
+                                    time_part(&s.endTime)
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .filter(|v: &Vec<String>| !v.is_empty());
 
                 Film {
                     title: f.filmTitle,
