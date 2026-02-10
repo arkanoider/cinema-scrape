@@ -126,9 +126,13 @@ pub fn generate_rss_merged(
                 value: film.url.clone(),
                 permalink: true,
             };
+            // Make the cinema clearly visible in the item title so
+            // feed readers that hide categories still show where the
+            // film is playing.
+            let title_with_cinema = format!("{} - {}", cinema_name, film.title);
             let mut item_builder = ItemBuilder::default();
             item_builder
-                .title(film.title.clone())
+                .title(title_with_cinema)
                 .link(film.url.clone())
                 .description(description)
                 .guid(guid)
