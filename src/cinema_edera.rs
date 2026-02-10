@@ -140,6 +140,7 @@ impl CinemaScraper for CinemaEderaScraper {
                 }
 
                 // Synopsis: p.movie__describe (Trama) + optional extra info from movie__option
+                // and long-form description in the main content area (h3 / strong blocks).
                 let mut synopsis_parts = Vec::new();
                 if !option_parts.is_empty() {
                     synopsis_parts.push(option_parts.join(" | "));
@@ -151,6 +152,42 @@ impl CinemaScraper for CinemaEderaScraper {
                     let trama = trama.trim();
                     if !trama.is_empty() {
                         synopsis_parts.push(trama.to_string());
+                    }
+                }
+                // Long text description (e.g. "Trama" section) can appear as headings
+                // or highlighted text inside the main content wrapper. We append those
+                // as well so Edera entries have a rich synopsis similar to the other cinemas.
+                if let Ok(h3_sel) = Selector::parse("#main-content-wrapper section h3") {
+                    for h3 in doc.select(&h3_sel) {
+                        let text = h3.text().collect::<String>();
+                        let text = text.trim();
+                        if !text.is_empty() {
+                            synopsis_parts.push(text.to_string());
+                        }
+                    }
+                }
+                // Some pages (e.g. Marty Supreme) put important synopsis lines in <strong>
+                // elements rather than plain paragraphs. Collect those too, but skip labels
+                // like "Genere", "Paese", etc.
+                if let Ok(strong_sel) = Selector::parse("#main-content-wrapper section strong") {
+                    for strong in doc.select(&strong_sel) {
+                        let text = strong.text().collect::<String>();
+                        let text = text.trim();
+                        if text.is_empty() {
+                            continue;
+                        }
+                        let lower = text.to_lowercase();
+                        if lower.starts_with("genere")
+                            || lower.starts_with("paese")
+                            || lower.starts_with("regia")
+                            || lower.starts_with("cast")
+                            || lower.starts_with("anno")
+                            || lower.starts_with("lingua")
+                            || lower.contains("orari spettacoli")
+                        {
+                            continue;
+                        }
+                        synopsis_parts.push(text.to_string());
                     }
                 }
                 if !synopsis_parts.is_empty() {
