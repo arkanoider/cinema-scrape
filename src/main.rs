@@ -1,14 +1,16 @@
 mod cinema_edera;
 mod cinemazero;
 mod enrico_pizzuti;
-mod rassegne;
+mod rassegne_cristallo;
+mod rassegne_edera;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
-use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
+use cinema_scrape::{generate_rss_merged, CinemaScraper, Film};
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
-use rassegne::{EderaRassegneScraper, RassegneScraper};
+use rassegne_cristallo::RassegneScraperCristallo;
+use rassegne_edera::RassegneScraperEdera;
 use space_cinema::SpaceCinemaScraper;
 use std::fs;
 
@@ -56,9 +58,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
     let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
     let rassegne_scraper =
-        RassegneScraper::new("https://www.cinemacristallo.com/rassegna-film-dautore/".to_string());
+        RassegneScraperCristallo::new("https://www.cinemacristallo.com/rassegna-film-dautore/".to_string());
     let edera_rassegne_scraper =
-        EderaRassegneScraper::new("https://www.cinemaedera.it/rassegne.html".to_string());
+        RassegneScraperEdera::new("https://www.cinemaedera.it/rassegne.html".to_string());
 
     // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";

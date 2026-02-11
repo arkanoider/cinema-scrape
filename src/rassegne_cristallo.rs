@@ -5,19 +5,22 @@ use std::collections::HashSet;
 
 /// Scraper for Cinema Cristallo Oderzo "Rassegna Film d’Autore".
 /// Starts from the rassegna listing page and follows each film link.
-pub struct RassegneScraper {
+pub struct RassegneScraperCristallo {
     url: String,
 }
 
-impl RassegneScraper {
+impl RassegneScraperCristallo {
     pub fn new(url: String) -> Self {
         Self { url }
     }
 }
 
 #[async_trait::async_trait]
-impl CinemaScraper for RassegneScraper {
-    async fn fetch_films(&self, client: &Client) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
+impl CinemaScraper for RassegneScraperCristallo {
+    async fn fetch_films(
+        &self,
+        client: &Client,
+    ) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
         let resp = client
             .get(&self.url)
             .header(
@@ -87,7 +90,8 @@ impl CinemaScraper for RassegneScraper {
         //     <ul><li>17.00 - €4.00</li></ul>
         //   </div>
         // </div>
-        let showtime_item_selector = Selector::parse("div.showtime-item.single-cinema")?;
+        let showtime_item_selector =
+            Selector::parse("div.showtime-item.single-cinema")?;
         let st_title_selector = Selector::parse("div.st-title")?;
         let date_label_selector = Selector::parse("label")?;
         let time_li_selector = Selector::parse("ul li")?;
@@ -122,7 +126,13 @@ impl CinemaScraper for RassegneScraper {
                         cast: None,
                         release_date: None,
                         running_time: None,
-                        synopsis: extract_synopsis(&doc),
+                        synopsis: extract_synopsis(&doc)
+                            .map(|s| {
+                                format!("Cinema: Cinema Cristallo Oderzo\n\n{}", s)
+                            })
+                            .or_else(|| {
+                                Some("Cinema: Cinema Cristallo Oderzo".to_string())
+                            }),
                         showtimes: None,
                     });
                     continue;
@@ -168,7 +178,9 @@ impl CinemaScraper for RassegneScraper {
                         let mut minutes: u32 = 0;
                         for (idx, tok) in tokens.iter().enumerate() {
                             if let Ok(n) = tok.parse::<u32>() {
-                                if idx + 1 < tokens.len() && tokens[idx + 1].starts_with("ore") {
+                                if idx + 1 < tokens.len()
+                                    && tokens[idx + 1].starts_with("ore")
+                                {
                                     hours = n;
                                 } else if idx + 1 < tokens.len()
                                     && tokens[idx + 1].starts_with("min")
@@ -177,7 +189,8 @@ impl CinemaScraper for RassegneScraper {
                                 }
                             }
                         }
-                        let total = hours.saturating_mul(60).saturating_add(minutes);
+                        let total =
+                            hours.saturating_mul(60).saturating_add(minutes);
                         if total > 0 {
                             running_time = Some(total);
                         }
@@ -240,7 +253,10 @@ impl CinemaScraper for RassegneScraper {
                     // Take the first token that looks like a time, e.g. "17.00".
                     let time_token = text
                         .split_whitespace()
-                        .find(|tok| tok.chars().any(|c| c.is_ascii_digit()) && tok.contains('.'))
+                        .find(|tok| {
+                            tok.chars().any(|c| c.is_ascii_digit())
+                                && tok.contains('.')
+                        })
                         .unwrap_or("")
                         .to_string();
                     if time_token.is_empty() {
@@ -345,140 +361,3 @@ fn extract_synopsis(doc: &Html) -> Option<String> {
     None
 }
 
-/// Scraper for Cinema Edera rassegne (e.g. 10 E LUCE).
-/// Treats each rassegna page as a "film" entry with long-form text.
-pub struct EderaRassegneScraper {
-    url: String,
-}
-
-impl EderaRassegneScraper {
-    pub fn new(url: String) -> Self {
-        Self { url }
-    }
-}
-
-#[async_trait::async_trait]
-impl CinemaScraper for EderaRassegneScraper {
-    async fn fetch_films(&self, client: &Client) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
-        let resp = client
-            .get(&self.url)
-            .header(
-                header::USER_AGENT,
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-                 AppleWebKit/537.36 (KHTML, like Gecko) \
-                 Chrome/143.0.0.0 Safari/537.36",
-            )
-            .send()
-            .await?
-            .error_for_status()?;
-
-        let body = resp.text().await?;
-
-        // Collect unique rassegna URLs like /rassegne/10-e-luce.html
-        let rassegna_urls: Vec<String> = {
-            let document = Html::parse_document(&body);
-            let link_selector = Selector::parse("a[href*=\"/rassegne/\"]")?;
-            let mut urls = Vec::new();
-            let mut seen = HashSet::new();
-
-            for a in document.select(&link_selector) {
-                if let Some(href) = a.value().attr("href") {
-                    let href = href.trim();
-                    if href.is_empty() {
-                        continue;
-                    }
-                    // Skip the listing page itself if it appears as a link.
-                    if href.ends_with("/rassegne.html") {
-                        continue;
-                    }
-                    let full = if href.starts_with("http") {
-                        href.to_string()
-                    } else {
-                        format!("https://www.cinemaedera.it{}", href)
-                    };
-                    if seen.insert(full.clone()) {
-                        urls.push(full);
-                    }
-                }
-            }
-
-            urls
-        };
-
-        if rassegna_urls.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut films = Vec::new();
-
-        for url in rassegna_urls {
-            let resp = client
-                .get(&url)
-                .header(
-                    header::USER_AGENT,
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-                     AppleWebKit/537.36 (KHTML, like Gecko) \
-                     Chrome/143.0.0.0 Safari/537.36",
-                )
-                .send()
-                .await?
-                .error_for_status()?;
-
-            let body = resp.text().await?;
-            let doc = Html::parse_document(&body);
-
-            // Title: try main heading on the page.
-            let title = extract_title_fallback(&doc).unwrap_or_else(|| url.clone());
-
-            // Date range line: something starting with "Dal".
-            let date_range = {
-                let text_nodes: Vec<String> = doc
-                    .root_element()
-                    .text()
-                    .map(|t| t.trim())
-                    .filter(|t| !t.is_empty())
-                    .map(|t| t.to_string())
-                    .collect();
-                text_nodes.iter().find(|s| s.starts_with("Dal ")).cloned()
-            };
-
-            // Long-form description: use the same helper, but scoped to the main content wrapper.
-            let synopsis_raw = extract_synopsis(&doc);
-            let synopsis = match synopsis_raw {
-                Some(text) => {
-                    let mut parts = Vec::new();
-                    parts.push("Cinema: Cinema Edera".to_string());
-                    if let Some(ds) = &date_range {
-                        parts.push(ds.clone());
-                    }
-                    parts.push(text);
-                    Some(parts.join("\n\n"))
-                }
-                None => {
-                    if let Some(ds) = date_range.clone() {
-                        Some(format!("Cinema: Cinema Edera\n\n{}", ds))
-                    } else {
-                        Some("Cinema: Cinema Edera".to_string())
-                    }
-                }
-            };
-
-            films.push(Film {
-                title,
-                url,
-                poster_url: None,
-                cast: None,
-                release_date: date_range,
-                running_time: None,
-                synopsis,
-                showtimes: None,
-            });
-        }
-
-        Ok(films)
-    }
-
-    fn rss_filename(&self) -> String {
-        "rassegne_edera.xml".to_string()
-    }
-}
