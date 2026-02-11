@@ -77,6 +77,21 @@ impl CinemaScraper for RassegneScraper {
         let info_container_selector =
             Selector::parse("div.row.amy-single-movie div.col-md-4.col-sm-4")?;
         let poster_selector = Selector::parse("div.row.amy-single-movie img")?;
+        // Showtimes widgets, e.g.:
+        // <div class=\"showtime-item single-cinema\">
+        //   <div class=\"st-item\">
+        //     <div class=\"st-title\">
+        //       <label>martedì 11 Nov.</label>
+        //       ...
+        //     </div>
+        //     <ul><li>17.00 - €4.00</li></ul>
+        //   </div>
+        // </div>
+        let showtime_item_selector =
+            Selector::parse("div.showtime-item.single-cinema")?;
+        let st_title_selector = Selector::parse("div.st-title")?;
+        let date_label_selector = Selector::parse("label")?;
+        let time_li_selector = Selector::parse("ul li")?;
 
         let mut films = Vec::new();
 
@@ -189,6 +204,60 @@ impl CinemaScraper for RassegneScraper {
             let poster_url = extract_poster(&doc, &poster_selector);
             let synopsis = extract_synopsis(&doc);
 
+            // Collect showtimes from the showtime widgets.
+            let mut showtime_vec: Vec<String> = Vec::new();
+            for item in doc.select(&showtime_item_selector) {
+                // Date label like "martedì 11 Nov."
+                let date = item
+                    .select(&st_title_selector)
+                    .next()
+                    .and_then(|title_div| {
+                        title_div
+                            .select(&date_label_selector)
+                            .next()
+                            .map(|lbl| {
+                                lbl.text()
+                                    .map(|t| t.trim())
+                                    .filter(|t| !t.is_empty())
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                            })
+                    })
+                    .unwrap_or_default();
+
+                if date.is_empty() {
+                    continue;
+                }
+
+                for li in item.select(&time_li_selector) {
+                    let text = li
+                        .text()
+                        .map(|t| t.trim())
+                        .filter(|t| !t.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    if text.is_empty() {
+                        continue;
+                    }
+                    // Take the first token that looks like a time, e.g. "17.00".
+                    let time_token = text
+                        .split_whitespace()
+                        .find(|tok| tok.chars().any(|c| c.is_ascii_digit()) && tok.contains('.'))
+                        .unwrap_or("")
+                        .to_string();
+                    if time_token.is_empty() {
+                        continue;
+                    }
+                    showtime_vec.push(format!("{} ore {}", date, time_token));
+                }
+            }
+
+            let showtimes = if showtime_vec.is_empty() {
+                None
+            } else {
+                Some(showtime_vec)
+            };
+
             films.push(Film {
                 title,
                 url,
@@ -197,7 +266,7 @@ impl CinemaScraper for RassegneScraper {
                 release_date,
                 running_time,
                 synopsis,
-                showtimes: None,
+                showtimes,
             });
         }
 
