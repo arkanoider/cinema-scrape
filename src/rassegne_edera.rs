@@ -18,10 +18,7 @@ impl RassegneScraperEdera {
 
 #[async_trait::async_trait]
 impl CinemaScraper for RassegneScraperEdera {
-    async fn fetch_films(
-        &self,
-        client: &Client,
-    ) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
+    async fn fetch_films(&self, client: &Client) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
         let resp = client
             .get(&self.url)
             .header(
@@ -37,7 +34,7 @@ impl CinemaScraper for RassegneScraperEdera {
         let body = resp.text().await?;
 
         // Collect unique rassegna URLs like rassegne/10-e-luce.html
-        let mut rassegna_urls: Vec<String> = {
+        let rassegna_urls: Vec<String> = {
             let document = Html::parse_document(&body);
             // Match both absolute and relative URLs that contain "rassegne/".
             let link_selector = Selector::parse("a[href*=\"rassegne/\"]")?;
@@ -171,4 +168,3 @@ impl CinemaScraper for RassegneScraperEdera {
         "rassegne_edera.xml".to_string()
     }
 }
-

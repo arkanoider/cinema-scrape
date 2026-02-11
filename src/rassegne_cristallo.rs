@@ -17,10 +17,7 @@ impl RassegneScraperCristallo {
 
 #[async_trait::async_trait]
 impl CinemaScraper for RassegneScraperCristallo {
-    async fn fetch_films(
-        &self,
-        client: &Client,
-    ) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
+    async fn fetch_films(&self, client: &Client) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
         let resp = client
             .get(&self.url)
             .header(
@@ -90,8 +87,7 @@ impl CinemaScraper for RassegneScraperCristallo {
         //     <ul><li>17.00 - €4.00</li></ul>
         //   </div>
         // </div>
-        let showtime_item_selector =
-            Selector::parse("div.showtime-item.single-cinema")?;
+        let showtime_item_selector = Selector::parse("div.showtime-item.single-cinema")?;
         let st_title_selector = Selector::parse("div.st-title")?;
         let date_label_selector = Selector::parse("label")?;
         let time_li_selector = Selector::parse("ul li")?;
@@ -127,12 +123,8 @@ impl CinemaScraper for RassegneScraperCristallo {
                         release_date: None,
                         running_time: None,
                         synopsis: extract_synopsis(&doc)
-                            .map(|s| {
-                                format!("Cinema: Cinema Cristallo Oderzo\n\n{}", s)
-                            })
-                            .or_else(|| {
-                                Some("Cinema: Cinema Cristallo Oderzo".to_string())
-                            }),
+                            .map(|s| format!("Cinema: Cinema Cristallo Oderzo\n\n{}", s))
+                            .or_else(|| Some("Cinema: Cinema Cristallo Oderzo".to_string())),
                         showtimes: None,
                     });
                     continue;
@@ -178,9 +170,7 @@ impl CinemaScraper for RassegneScraperCristallo {
                         let mut minutes: u32 = 0;
                         for (idx, tok) in tokens.iter().enumerate() {
                             if let Ok(n) = tok.parse::<u32>() {
-                                if idx + 1 < tokens.len()
-                                    && tokens[idx + 1].starts_with("ore")
-                                {
+                                if idx + 1 < tokens.len() && tokens[idx + 1].starts_with("ore") {
                                     hours = n;
                                 } else if idx + 1 < tokens.len()
                                     && tokens[idx + 1].starts_with("min")
@@ -189,8 +179,7 @@ impl CinemaScraper for RassegneScraperCristallo {
                                 }
                             }
                         }
-                        let total =
-                            hours.saturating_mul(60).saturating_add(minutes);
+                        let total = hours.saturating_mul(60).saturating_add(minutes);
                         if total > 0 {
                             running_time = Some(total);
                         }
@@ -253,10 +242,7 @@ impl CinemaScraper for RassegneScraperCristallo {
                     // Take the first token that looks like a time, e.g. "17.00".
                     let time_token = text
                         .split_whitespace()
-                        .find(|tok| {
-                            tok.chars().any(|c| c.is_ascii_digit())
-                                && tok.contains('.')
-                        })
+                        .find(|tok| tok.chars().any(|c| c.is_ascii_digit()) && tok.contains('.'))
                         .unwrap_or("")
                         .to_string();
                     if time_token.is_empty() {
@@ -360,4 +346,3 @@ fn extract_synopsis(doc: &Html) -> Option<String> {
 
     None
 }
-
