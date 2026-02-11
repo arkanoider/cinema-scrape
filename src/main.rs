@@ -1,12 +1,14 @@
 mod cinema_edera;
 mod cinemazero;
 mod enrico_pizzuti;
+mod rassegne;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
-use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
+use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
+use rassegne::RassegneScraper;
 use space_cinema::SpaceCinemaScraper;
 use std::fs;
 
@@ -53,8 +55,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
     let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
+    let rassegne_scraper =
+        RassegneScraper::new("https://www.cinemacristallo.com/rassegna-film-dautore/".to_string());
 
-    // Fetch all three cinemas (names used as categories in the merged feed)
+    // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
     const EDERA_NAME: &str = "Cinema Multisala Edera";
     const PIZZUTI_NAME: &str = "Circolo Enrico Pizzuti";
@@ -83,7 +87,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_default();
     print_films(&cinemazero_films);
 
-    // Single merged RSS with cinema names as categories
+    println!("\n=== Fetching from Cinema Cristallo Oderzo - Rassegna Film d’Autore ===\n");
+    let rassegne_films = rassegne_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&rassegne_films);
+
+    // Separate RSS feed just for the Rassegna Film d’Autore.
+    let rassegne_rss_xml = generate_rss(
+        &rassegne_films,
+        "Rassegna Film d’Autore",
+        "https://www.cinemacristallo.com/rassegna-film-dautore/",
+        "Rassegna Film d’Autore",
+    )?;
+    let rassegne_feed_path = rassegne_scraper.rss_filename();
+    fs::write(&rassegne_feed_path, rassegne_rss_xml)?;
+    println!("✓ Rassegne RSS feed saved to: {}", rassegne_feed_path);
+
+    // Single merged RSS with cinema names as categories (Rassegne excluded)
     let rss_xml = generate_rss_merged(
         "Film in programmazione",
         "https://github.com/", // optional: set to your repo or a landing page
