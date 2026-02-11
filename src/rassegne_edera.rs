@@ -36,10 +36,11 @@ impl CinemaScraper for RassegneScraperEdera {
 
         let body = resp.text().await?;
 
-        // Collect unique rassegna URLs like /rassegne/10-e-luce.html
-        let rassegna_urls: Vec<String> = {
+        // Collect unique rassegna URLs like rassegne/10-e-luce.html
+        let mut rassegna_urls: Vec<String> = {
             let document = Html::parse_document(&body);
-            let link_selector = Selector::parse("a[href*=\"/rassegne/\"]")?;
+            // Match both absolute and relative URLs that contain "rassegne/".
+            let link_selector = Selector::parse("a[href*=\"rassegne/\"]")?;
             let mut urls = Vec::new();
             let mut seen = HashSet::new();
 
@@ -47,10 +48,6 @@ impl CinemaScraper for RassegneScraperEdera {
                 if let Some(href) = a.value().attr("href") {
                     let href = href.trim();
                     if href.is_empty() {
-                        continue;
-                    }
-                    // Skip the listing page itself if it appears as a link.
-                    if href.ends_with("/rassegne.html") {
                         continue;
                     }
                     let full = if href.starts_with("http") {
@@ -67,6 +64,18 @@ impl CinemaScraper for RassegneScraperEdera {
             urls
         };
 
+        // Ensure we include the known rassegne pages even if the HTML
+        // structure or selectors change subtly.
+        for known in [
+            "https://www.cinemaedera.it/rassegne/abc.html",
+            "https://www.cinemaedera.it/rassegne/10-e-luce.html",
+            "https://www.cinemaedera.it/rassegne/il-cinema-di-david-lynch.html",
+        ] {
+            if !rassegna_urls.iter().any(|u| u == known) {
+                rassegna_urls.push(known.to_string());
+            }
+        }
+
         if rassegna_urls.is_empty() {
             return Ok(Vec::new());
         }
@@ -74,6 +83,7 @@ impl CinemaScraper for RassegneScraperEdera {
         let mut films = Vec::new();
 
         for url in rassegna_urls {
+            println!("Fetching rassegna page: {}", url);
             let resp = client
                 .get(&url)
                 .header(
