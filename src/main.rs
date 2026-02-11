@@ -5,10 +5,10 @@ mod rassegne;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
-use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
+use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
-use rassegne::RassegneScraper;
+use rassegne::{EderaRassegneScraper, RassegneScraper};
 use space_cinema::SpaceCinemaScraper;
 use std::fs;
 
@@ -57,6 +57,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
     let rassegne_scraper =
         RassegneScraper::new("https://www.cinemacristallo.com/rassegna-film-dautore/".to_string());
+    let edera_rassegne_scraper =
+        EderaRassegneScraper::new("https://www.cinemaedera.it/rassegne.html".to_string());
 
     // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
@@ -94,12 +96,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_default();
     print_films(&rassegne_films);
 
-    // Separate RSS feed just for the Rassegna Film d’Autore.
-    let rassegne_rss_xml = generate_rss(
-        &rassegne_films,
-        "Rassegna Film d’Autore",
-        "https://www.cinemacristallo.com/rassegna-film-dautore/",
-        "Rassegna Film d’Autore",
+    println!("\n=== Fetching from Cinema Edera - Rassegne ===\n");
+    let edera_rassegne_films = edera_rassegne_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&edera_rassegne_films);
+
+    // Single RSS feed for all rassegne (Cristallo + Edera),
+    // with cinema names included per item via categories and titles.
+    let rassegne_rss_xml = generate_rss_merged(
+        "Rassegne",
+        "https://github.com/", // optional: landing page
+        "Rassegne di Cinema Cristallo Oderzo e Cinema Edera.",
+        &[
+            ("Cinema Cristallo Oderzo", rassegne_films.as_slice()),
+            ("Cinema Edera", edera_rassegne_films.as_slice()),
+        ],
     )?;
     let rassegne_feed_path = rassegne_scraper.rss_filename();
     fs::write(&rassegne_feed_path, rassegne_rss_xml)?;
