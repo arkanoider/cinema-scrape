@@ -35,5 +35,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add feeds.xml
-          git add rassegne_cristallo.xml
+          git add rassegne.xml
           git diff --staged --quiet || (git commit -m "chore: update RSS feed [skip ci]" && git push)
