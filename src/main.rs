@@ -6,7 +6,7 @@ mod rassegne_edera;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
-use cinema_scrape::{generate_rss_merged, CinemaScraper, Film};
+use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
@@ -57,8 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
     let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
-    let rassegne_scraper =
-        RassegneScraperCristallo::new("https://www.cinemacristallo.com/rassegna-film-dautore/".to_string());
+    let rassegne_scraper = RassegneScraperCristallo::new(
+        "https://www.cinemacristallo.com/rassegna-film-dautore/".to_string(),
+    );
     let edera_rassegne_scraper =
         RassegneScraperEdera::new("https://www.cinemaedera.it/rassegne.html".to_string());
 

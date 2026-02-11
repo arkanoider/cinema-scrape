@@ -64,18 +64,6 @@ impl CinemaScraper for RassegneScraperEdera {
             urls
         };
 
-        // Ensure we include the known rassegne pages even if the HTML
-        // structure or selectors change subtly.
-        for known in [
-            "https://www.cinemaedera.it/rassegne/abc.html",
-            "https://www.cinemaedera.it/rassegne/10-e-luce.html",
-            "https://www.cinemaedera.it/rassegne/il-cinema-di-david-lynch.html",
-        ] {
-            if !rassegna_urls.iter().any(|u| u == known) {
-                rassegna_urls.push(known.to_string());
-            }
-        }
-
         if rassegna_urls.is_empty() {
             return Ok(Vec::new());
         }
@@ -83,7 +71,6 @@ impl CinemaScraper for RassegneScraperEdera {
         let mut films = Vec::new();
 
         for url in rassegna_urls {
-            println!("Fetching rassegna page: {}", url);
             let resp = client
                 .get(&url)
                 .header(
@@ -97,158 +84,78 @@ impl CinemaScraper for RassegneScraperEdera {
                 .error_for_status()?;
 
             let body = resp.text().await?;
+            let doc = Html::parse_document(&body);
 
-            // Scope HTML parsing so non-Send types are dropped before awaits
-            // when fetching inner film pages.
-            let (title, date_range, synopsis_raw, inner_urls): (
-                String,
-                Option<String>,
-                Option<String>,
-                Vec<String>,
-            ) = {
-                let doc = Html::parse_document(&body);
-
-                // Title: try main heading on the page.
-                let title = extract_title_fallback(&doc).unwrap_or_else(|| url.clone());
-
-                // Date range line: something starting with "Dal".
-                let date_range = {
-                    let text_nodes: Vec<String> = doc
-                        .root_element()
-                        .text()
+            // Title from the page heading, e.g. <h2 class="page-heading">10 E LUCE</h2>
+            let title_selector = Selector::parse("h2.page-heading")?;
+            let title = doc
+                .select(&title_selector)
+                .next()
+                .map(|h2| {
+                    h2.text()
                         .map(|t| t.trim())
                         .filter(|t| !t.is_empty())
-                        .map(|t| t.to_string())
-                        .collect();
-                    text_nodes.iter().find(|s| s.starts_with("Dal ")).cloned()
-                };
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| url.clone());
 
-                // Long-form description: rassegna page text.
-                let synopsis_raw = extract_synopsis(&doc);
-
-                // Collect inner film links inside this rassegna page.
-                let inner_link_selector = Selector::parse("a[href]")
-                    .map_err(|e| format!("selector error: {e}"))?;
-                let mut inner_urls: Vec<String> = Vec::new();
-                let mut seen_inner = HashSet::new();
-
-                for a in doc.select(&inner_link_selector) {
-                    if let Some(href) = a.value().attr("href") {
-                        let href = href.trim();
-                        if href.is_empty() {
-                            continue;
-                        }
-                        // Skip links that point to other rassegna pages or navigation.
-                        if href.contains("/rassegne/") {
-                            continue;
-                        }
-                        // Heuristic: keep only links that look like film detail pages.
-                        if !(href.contains("/film") || href.contains("i-film")) {
-                            continue;
-                        }
-                        let full = if href.starts_with("http") {
-                            href.to_string()
-                        } else {
-                            format!("https://www.cinemaedera.it{}", href)
-                        };
-                        if seen_inner.insert(full.clone()) {
-                            inner_urls.push(full);
-                        }
-                    }
-                }
-
-                (title, date_range, synopsis_raw, inner_urls)
+            // Date range line: text starting with "Dal ...".
+            let date_range = {
+                let text_nodes: Vec<String> = doc
+                    .root_element()
+                    .text()
+                    .map(|t| t.trim())
+                    .filter(|t| !t.is_empty())
+                    .map(|t| t.to_string())
+                    .collect();
+                text_nodes.iter().find(|s| s.starts_with("Dal ")).cloned()
             };
 
-            // Now fetch each inner film page without holding onto `doc`.
-            let inner_poster_selector = Selector::parse(".movie__images img.img-responsive")
-                .map_err(|e| format!("selector error: {e}"))?;
-            let inner_desc_selector =
-                Selector::parse("p.movie__describe").map_err(|e| format!("selector error: {e}"))?;
-
-            let mut inner_infos: Vec<(String, Option<String>, Option<String>)> = Vec::new();
-
-            for full in inner_urls {
-                let resp = client
-                    .get(&full)
-                    .header(
-                        header::USER_AGENT,
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-                         AppleWebKit/537.36 (KHTML, like Gecko) \
-                         Chrome/143.0.0.0 Safari/537.36",
-                    )
-                    .send()
-                    .await?
-                    .error_for_status()?;
-                let film_body = resp.text().await?;
-                let film_doc = Html::parse_document(&film_body);
-
-                let film_title =
-                    extract_title_fallback(&film_doc).unwrap_or_else(|| full.clone());
-
-                // Poster from the standard Edera film layout.
-                let film_poster = film_doc
-                    .select(&inner_poster_selector)
-                    .next()
-                    .and_then(|img| img.value().attr("src"))
-                    .map(|src| src.trim())
-                    .filter(|src| !src.is_empty())
-                    .map(|src| {
-                        if src.starts_with("http") {
-                            src.to_string()
-                        } else {
-                            format!("https://www.cinemaedera.it{}", src)
-                        }
-                    });
-
-                // Short synopsis from p.movie__describe if available.
-                let film_synopsis = film_doc
-                    .select(&inner_desc_selector)
-                    .next()
-                    .map(|p| {
-                        p.text()
-                            .map(|t| t.trim())
-                            .filter(|t| !t.is_empty())
-                            .collect::<Vec<_>>()
-                            .join(" ")
-                    })
-                    .filter(|s| !s.is_empty());
-
-                inner_infos.push((film_title, film_poster, film_synopsis));
+            // All <h3> blocks on the page are the per-film descriptions we care about.
+            let h3_selector = Selector::parse("h3")?;
+            let mut entries = Vec::new();
+            for h3 in doc.select(&h3_selector) {
+                let text = h3
+                    .text()
+                    .map(|t| t.trim())
+                    .filter(|t| !t.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                if !text.is_empty() {
+                    entries.push(text);
+                }
             }
 
+            // If there are no <h3> entries at all (e.g. flyer/ABC page), skip.
+            if entries.is_empty() {
+                continue;
+            }
+
+            // Build a simple long-form synopsis:
+            // - Cinema name
+            // - Date range line (Dal ... al ...)
+            // - Bullet-like list of all <h3> entries.
             let synopsis = {
                 let mut parts = Vec::new();
                 parts.push("Cinema: Cinema Edera".to_string());
                 if let Some(ds) = &date_range {
                     parts.push(ds.clone());
                 }
-                if let Some(text) = synopsis_raw {
-                    parts.push(text);
-                }
-                if !inner_infos.is_empty() {
+                if !entries.is_empty() {
                     parts.push("I film della rassegna:".to_string());
-                    for (film_title, _, film_synopsis) in &inner_infos {
-                        let mut block = format!("* {}", film_title);
-                        if let Some(s) = film_synopsis {
-                            block.push('\n');
-                            block.push_str(s);
-                        }
-                        parts.push(block);
+                    for e in entries {
+                        parts.push(format!("* {}", e));
                     }
                 }
                 Some(parts.join("\n\n"))
             };
 
-            // Use the first inner film poster (if any) as the rassegna poster.
-            let poster_url = inner_infos
-                .iter()
-                .find_map(|(_, poster, _)| poster.clone());
-
             films.push(Film {
                 title,
                 url,
-                poster_url,
+                poster_url: None,
                 cast: None,
                 release_date: date_range,
                 running_time: None,
@@ -263,53 +170,5 @@ impl CinemaScraper for RassegneScraperEdera {
     fn rss_filename(&self) -> String {
         "rassegne_edera.xml".to_string()
     }
-}
-
-/// Fallback title extraction from a generic <h1>.
-fn extract_title_fallback(doc: &Html) -> Option<String> {
-    let h1_selector = Selector::parse("h1").ok()?;
-    doc.select(&h1_selector)
-        .next()
-        .map(|h1| {
-            h1.text()
-                .map(|t| t.trim())
-                .filter(|t| !t.is_empty())
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .filter(|s| !s.is_empty())
-}
-
-/// Extract a textual synopsis / description from a rassegna page.
-fn extract_synopsis(doc: &Html) -> Option<String> {
-    let candidates = [
-        "#main-content-wrapper section p",
-        "div.entry-content p",
-        "article div.entry-content p",
-    ];
-
-    for sel_str in &candidates {
-        let selector = match Selector::parse(sel_str) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let mut parts = Vec::new();
-        for p in doc.select(&selector) {
-            let text = p
-                .text()
-                .map(|t| t.trim())
-                .filter(|t| !t.is_empty())
-                .collect::<Vec<_>>()
-                .join(" ");
-            if !text.is_empty() {
-                parts.push(text);
-            }
-        }
-        if !parts.is_empty() {
-            return Some(parts.join("\n\n"));
-        }
-    }
-
-    None
 }
 
