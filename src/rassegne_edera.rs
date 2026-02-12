@@ -34,11 +34,12 @@ impl CinemaScraper for RassegneScraperEdera {
         let body = resp.text().await?;
 
         // Collect unique rassegna URLs like rassegne/10-e-luce.html
-        let rassegna_urls: Vec<String> = {
+        // and, when available, their poster image URLs from the main page.
+        let rassegna_links: Vec<(String, Option<String>)> = {
             let document = Html::parse_document(&body);
             // Match both absolute and relative URLs that contain "rassegne/".
             let link_selector = Selector::parse("a[href*=\"rassegne/\"]")?;
-            let mut urls = Vec::new();
+            let mut links = Vec::new();
             let mut seen = HashSet::new();
 
             for a in document.select(&link_selector) {
@@ -47,27 +48,41 @@ impl CinemaScraper for RassegneScraperEdera {
                     if href.is_empty() {
                         continue;
                     }
-                    let full = if href.starts_with("http") {
+                    let full_url = if href.starts_with("http") {
                         href.to_string()
                     } else {
                         format!("https://www.cinemaedera.it{}", href)
                     };
-                    if seen.insert(full.clone()) {
-                        urls.push(full);
+                    if seen.insert(full_url.clone()) {
+                        // Try to grab a poster image inside the link, if present.
+                        let poster_url = a
+                            .select(&Selector::parse("img").unwrap())
+                            .next()
+                            .and_then(|img| img.value().attr("src"))
+                            .map(|src| {
+                                let src = src.trim();
+                                if src.starts_with("http") {
+                                    src.to_string()
+                                } else {
+                                    format!("https://www.cinemaedera.it{}", src)
+                                }
+                            });
+
+                        links.push((full_url, poster_url));
                     }
                 }
             }
 
-            urls
+            links
         };
 
-        if rassegna_urls.is_empty() {
+        if rassegna_links.is_empty() {
             return Ok(Vec::new());
         }
 
         let mut films = Vec::new();
 
-        for url in rassegna_urls {
+        for (url, poster_url) in rassegna_links {
             let resp = client
                 .get(&url)
                 .header(
@@ -152,7 +167,7 @@ impl CinemaScraper for RassegneScraperEdera {
             films.push(Film {
                 title,
                 url,
-                poster_url: None,
+                poster_url,
                 cast: None,
                 release_date: date_range,
                 running_time: None,
