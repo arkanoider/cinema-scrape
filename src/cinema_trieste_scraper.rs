@@ -186,24 +186,18 @@ impl CinemaScraper for CinemaTriesteScraper {
             // Structure: date, time, v.o., Ingresso (repeated per showtime). Each showtime may be in its own ul.
             // Scan ALL spans in document order. Skip spans inside <a> (In programmazione links) and stop at section headers.
             let mut showtimes = Vec::new();
-            let span_selector =
-                Selector::parse("span.elementor-icon-list-text.elementor-post-info__item, span.elementor-post-info__item--type-custom")?;
+            let span_selector = Selector::parse(
+                "span.elementor-icon-list-text.elementor-post-info__item, span.elementor-post-info__item--type-custom, li.elementor-icon-list-item span",
+            )?;
             let mut current_date = String::new();
             for span in content.select(&span_selector) {
-                let in_other_section = {
+                let inside_link = {
                     let mut cur = Some(span);
                     let mut skip = false;
                     for _ in 0..20 {
                         cur = match cur.and_then(|el| el.parent().and_then(ElementRef::wrap)) {
                             Some(p) => {
                                 if p.value().name() == "a" {
-                                    skip = true;
-                                    break;
-                                }
-                                if p.attr("class")
-                                    .map(|c| c.contains("e-loop-item") || c.contains("elementor-widget-loop-grid"))
-                                    .unwrap_or(false)
-                                {
                                     skip = true;
                                     break;
                                 }
@@ -214,7 +208,7 @@ impl CinemaScraper for CinemaTriesteScraper {
                     }
                     skip
                 };
-                if in_other_section {
+                if inside_link {
                     continue;
                 }
                 let text = span
