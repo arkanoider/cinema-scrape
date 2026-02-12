@@ -2,6 +2,7 @@ mod cinema_edera;
 mod cinema_trieste_scraper;
 mod cinemazero;
 mod enrico_pizzuti;
+mod feed_padova;
 mod rassegne_cristallo;
 mod rassegne_edera;
 mod space_cinema;
@@ -11,6 +12,7 @@ use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
+use feed_padova::FeedPadovaScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
 use rassegne_edera::RassegneScraperEdera;
 use space_cinema::SpaceCinemaScraper;
@@ -64,6 +66,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let edera_rassegne_scraper =
         RassegneScraperEdera::new("https://www.cinemaedera.it/rassegne.html".to_string());
+    let padova_scraper =
+        FeedPadovaScraper::new("https://www.cinemarex.it/programmazione".to_string());
 
     // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
@@ -107,6 +111,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .unwrap_or_default();
     print_films(&edera_rassegne_films);
+
+    println!("\n=== Fetching from Cinema Rex Padova ===\n");
+    let padova_films = padova_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&padova_films);
+
+    // Padova RSS feed (single cinema)
+    let padova_rss_xml = generate_rss(
+        &padova_films,
+        "Cinema Rex Padova",
+        "https://www.cinemarex.it/programmazione",
+        "Programmazione Cinema Rex Padova",
+    )?;
+    let padova_feed_path = padova_scraper.rss_filename();
+    fs::write(&padova_feed_path, padova_rss_xml)?;
+    println!("✓ Padova RSS feed saved to: {}", padova_feed_path);
 
     println!("\n=== Fetching from Cinema Ariston Trieste (La Cappella Underground) ===\n");
     let trieste_scraper = CinemaTriesteScraper::new();
