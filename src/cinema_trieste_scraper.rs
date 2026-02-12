@@ -180,57 +180,51 @@ impl CinemaScraper for CinemaTriesteScraper {
                     }
                 });
 
-            // Showtimes: ul li - time and date alternate (15.00, Giovedì 12 febbraio, v.o., note, ...)
+            // Showtimes: from elementor spans (elementor-icon-list-text, elementor-post-info__item)
+            // e.g. <span class="elementor-icon-list-text elementor-post-info__item">Venerdì 13 febbraio</span>
+            //      <span class="elementor-icon-list-text elementor-post-info__item">17.30</span>
             let mut showtimes = Vec::new();
-            let ul_selector = Selector::parse("#portfolio-single-content ul")?;
-            let li_selector = Selector::parse("li")?;
-            for ul in content.select(&ul_selector) {
-                let items: Vec<String> = ul
-                    .select(&li_selector)
-                    .flat_map(|li| {
-                        li.text()
-                            .map(|t| t.trim())
-                            .filter(|t| !t.is_empty())
-                            .map(|t| t.to_string())
-                    })
-                    .collect();
-                if items.is_empty() {
+            let span_selector =
+                Selector::parse("span.elementor-icon-list-text.elementor-post-info__item")?;
+            let mut current_date = String::new();
+            for span in content.select(&span_selector) {
+                let text = span
+                    .text()
+                    .map(|t| t.trim())
+                    .filter(|t| !t.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                if text.is_empty() {
                     continue;
                 }
-                let mut current_date = String::new();
-                for item in &items {
-                    if item.starts_with("v.") || item.starts_with("Ingresso") {
-                        continue;
-                    }
-                    if item
-                        .chars()
-                        .all(|c| c.is_ascii_digit() || c == '.' || c == ':')
-                    {
-                        let time = item.replace('.', ":");
-                        if !current_date.is_empty() {
-                            let formatted = format!("{} ore {}", current_date, time);
-                            if !showtimes.contains(&formatted) {
-                                showtimes.push(formatted);
-                            }
-                        }
-                    } else if item.chars().any(|c| c.is_ascii_digit())
-                        && (item.contains("braio")   // febbraio
-                            || item.contains("enna")  // gennaio
-                            || item.contains("arzo")  // marzo
-                            || item.contains("rile")  // aprile
-                            || item.contains("aggio") // maggio
-                            || item.contains("ugno")  // giugno
-                            || item.contains("uglio") // luglio
-                            || item.contains("osto")  // agosto
-                            || item.contains("embre") // settembre, novembre, dicembre
-                            || item.contains("obre"))
-                    // ottobre
-                    {
-                        current_date = item.clone();
-                    }
+                if text.starts_with("v.") || text.starts_with("Ingresso") {
+                    continue;
                 }
-                if !showtimes.is_empty() {
-                    break;
+                if text
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '.' || c == ':')
+                {
+                    let time = text.replace('.', ":");
+                    if !current_date.is_empty() {
+                        let formatted = format!("{} ore {}", current_date, time);
+                        if !showtimes.contains(&formatted) {
+                            showtimes.push(formatted);
+                        }
+                    }
+                } else if text.chars().any(|c| c.is_ascii_digit())
+                    && (text.contains("braio")   // febbraio
+                        || text.contains("enna")  // gennaio
+                        || text.contains("arzo")  // marzo
+                        || text.contains("rile")  // aprile
+                        || text.contains("aggio") // maggio
+                        || text.contains("ugno")  // giugno
+                        || text.contains("uglio") // luglio
+                        || text.contains("osto")  // agosto
+                        || text.contains("embre") // settembre, novembre, dicembre
+                        || text.contains("obre"))
+                // ottobre
+                {
+                    current_date = text;
                 }
             }
 
