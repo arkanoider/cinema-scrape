@@ -37,8 +37,12 @@ impl CinemaScraper for RassegneScraperEdera {
         // and, when available, their poster image URLs from the main page.
         let rassegna_links: Vec<(String, Option<String>)> = {
             let document = Html::parse_document(&body);
-            // Match both absolute and relative URLs that contain "rassegne/".
-            let link_selector = Selector::parse("a[href*=\"rassegne/\"]")?;
+            // Match only the image links for each rassegna entry so we
+            // reliably capture the poster banner, e.g.
+            // <a href="/rassegne/10-e-luce.html" class="post__image-link">
+            //   <img src="/_media/images/thumbs/1600x600_10_e_luce_banner.jpg" ...>
+            // </a>
+            let link_selector = Selector::parse("a.post__image-link[href*=\"rassegne/\"]")?;
             let img_selector = Selector::parse("img")?;
             let mut links = Vec::new();
             let mut seen = HashSet::new();
