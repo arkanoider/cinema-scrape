@@ -180,57 +180,115 @@ impl CinemaScraper for CinemaTriesteScraper {
                     }
                 });
 
-            // Showtimes: ul li - time and date alternate (15.00, Giovedì 12 febbraio, v.o., note, ...)
+            // Showtimes: from elementor spans (elementor-icon-list-text, elementor-post-info__item)
+            // e.g. <span class="elementor-icon-list-text elementor-post-info__item">Venerdì 13 febbraio</span>
+            //      <span class="elementor-icon-list-text elementor-post-info__item">17.30</span>
+            // Structure: date, time, v.o., Ingresso (repeated per showtime). Scope to first ul with showtimes.
             let mut showtimes = Vec::new();
-            let ul_selector = Selector::parse("#portfolio-single-content ul")?;
-            let li_selector = Selector::parse("li")?;
+            let span_selector =
+                Selector::parse("span.elementor-icon-list-text.elementor-post-info__item, span.elementor-post-info__item--type-custom")?;
+            let ul_selector = Selector::parse("ul")?;
             for ul in content.select(&ul_selector) {
                 let items: Vec<String> = ul
-                    .select(&li_selector)
-                    .flat_map(|li| {
-                        li.text()
+                    .select(&span_selector)
+                    .flat_map(|span| {
+                        span.text()
                             .map(|t| t.trim())
                             .filter(|t| !t.is_empty())
                             .map(|t| t.to_string())
                     })
                     .collect();
-                if items.is_empty() {
+                let has_date = items.iter().any(|s| {
+                    s.chars().any(|c| c.is_ascii_digit())
+                        && (s.contains("braio")
+                            || s.contains("enna")
+                            || s.contains("arzo")
+                            || s.contains("rile")
+                            || s.contains("aggio")
+                            || s.contains("ugno")
+                            || s.contains("uglio")
+                            || s.contains("osto")
+                            || s.contains("embre")
+                            || s.contains("obre"))
+                });
+                let has_time = items
+                    .iter()
+                    .any(|s| s.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ':'));
+                if !has_date || !has_time {
                     continue;
                 }
                 let mut current_date = String::new();
-                for item in &items {
-                    if item.starts_with("v.") || item.starts_with("Ingresso") {
+                for text in &items {
+                    if text.is_empty() {
                         continue;
                     }
-                    if item
+                    if text.starts_with("v.") || text.starts_with("Ingresso") {
+                        continue;
+                    }
+                    if text
                         .chars()
                         .all(|c| c.is_ascii_digit() || c == '.' || c == ':')
                     {
-                        let time = item.replace('.', ":");
+                        let time = text.replace('.', ":");
                         if !current_date.is_empty() {
                             let formatted = format!("{} ore {}", current_date, time);
                             if !showtimes.contains(&formatted) {
                                 showtimes.push(formatted);
                             }
                         }
-                    } else if item.chars().any(|c| c.is_ascii_digit())
-                        && (item.contains("braio")   // febbraio
-                            || item.contains("enna")  // gennaio
-                            || item.contains("arzo")  // marzo
-                            || item.contains("rile")  // aprile
-                            || item.contains("aggio") // maggio
-                            || item.contains("ugno")  // giugno
-                            || item.contains("uglio") // luglio
-                            || item.contains("osto")  // agosto
-                            || item.contains("embre") // settembre, novembre, dicembre
-                            || item.contains("obre"))
-                    // ottobre
+                    } else if text.chars().any(|c| c.is_ascii_digit())
+                        && (text.contains("braio")   // febbraio
+                            || text.contains("enna")  // gennaio
+                            || text.contains("arzo")  // marzo
+                            || text.contains("rile")  // aprile
+                            || text.contains("aggio") // maggio
+                            || text.contains("ugno")  // giugno
+                            || text.contains("uglio") // luglio
+                            || text.contains("osto")  // agosto
+                            || text.contains("embre") // settembre, novembre, dicembre
+                            || text.contains("obre")) // ottobre
                     {
-                        current_date = item.clone();
+                        current_date = text.clone();
                     }
                 }
                 if !showtimes.is_empty() {
                     break;
+                }
+            }
+            if showtimes.is_empty() {
+                let mut current_date = String::new();
+                for span in content.select(&span_selector) {
+                    let text = span
+                        .text()
+                        .map(|t| t.trim())
+                        .filter(|t| !t.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    if text.is_empty() || text.starts_with("v.") || text.starts_with("Ingresso") {
+                        continue;
+                    }
+                    if text.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ':') {
+                        let time = text.replace('.', ":");
+                        if !current_date.is_empty() {
+                            let formatted = format!("{} ore {}", current_date, time);
+                            if !showtimes.contains(&formatted) {
+                                showtimes.push(formatted);
+                            }
+                        }
+                    } else if text.chars().any(|c| c.is_ascii_digit())
+                        && (text.contains("braio")
+                            || text.contains("enna")
+                            || text.contains("arzo")
+                            || text.contains("rile")
+                            || text.contains("aggio")
+                            || text.contains("ugno")
+                            || text.contains("uglio")
+                            || text.contains("osto")
+                            || text.contains("embre")
+                            || text.contains("obre"))
+                    {
+                        current_date = text;
+                    }
                 }
             }
 
