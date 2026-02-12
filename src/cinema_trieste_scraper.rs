@@ -250,31 +250,42 @@ impl CinemaScraper for CinemaTriesteScraper {
                 }
             }
 
-            // Synopsis: paragraphs before "Rassegne" or "In programmazione"
+            // Synopsis: paragraphs before "Rassegne" or "In programmazione".
+            // Skip but do NOT break on "Ingresso riservato" - synopsis often comes after it.
+            // First try p elements; if none found, fall back to div.elementor-widget-text-editor
+            // (some pages like Via Convento put synopsis in divs).
             let mut synopsis_parts = Vec::new();
-            let p_selector = Selector::parse("p")?;
-            for p in content.select(&p_selector) {
-                let text = p
-                    .text()
-                    .map(|t| t.trim())
-                    .filter(|t| !t.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                if text.is_empty() {
-                    continue;
-                }
-                if text == "Rassegne"
-                    || text == "In programmazione"
-                    || text.starts_with("Ingresso riservato")
-                {
+            for selector in ["p", "div.elementor-widget-text-editor"] {
+                if !synopsis_parts.is_empty() {
                     break;
                 }
-                if text.len() > 30
-                    && !text.starts_with("con ")
-                    && !text.contains("versione originale")
-                    && !text.contains('′')
-                {
-                    synopsis_parts.push(text);
+                let block_sel = Selector::parse(selector)?;
+                for el in content.select(&block_sel) {
+                    let text = el
+                        .text()
+                        .map(|t| t.trim())
+                        .filter(|t| !t.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    if text.is_empty() || text.len() <= 30 {
+                        continue;
+                    }
+                    if text == "Rassegne" || text == "In programmazione" {
+                        break;
+                    }
+                    if text.starts_with("Ingresso riservato")
+                        || text.starts_with("Ingressi:")
+                        || text.starts_with("AA.VV.")
+                    {
+                        continue;
+                    }
+                    if !text.starts_with("con ")
+                        && !text.contains("versione originale")
+                        && !text.contains('′')
+                        && !synopsis_parts.contains(&text)
+                    {
+                        synopsis_parts.push(text);
+                    }
                 }
             }
             let synopsis = if synopsis_parts.is_empty() {
