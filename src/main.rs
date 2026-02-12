@@ -1,4 +1,5 @@
 mod cinema_edera;
+mod cinema_trieste_scraper;
 mod cinemazero;
 mod enrico_pizzuti;
 mod rassegne_cristallo;
@@ -6,7 +7,8 @@ mod rassegne_edera;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
-use cinema_scrape::{CinemaScraper, Film, generate_rss_merged};
+use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
+use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
@@ -105,6 +107,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .unwrap_or_default();
     print_films(&edera_rassegne_films);
+
+    println!("\n=== Fetching from Cinema Ariston Trieste (La Cappella Underground) ===\n");
+    let trieste_scraper = CinemaTriesteScraper::new();
+    let trieste_films = trieste_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&trieste_films);
+
+    // Trieste RSS feed (single cinema)
+    let trieste_rss_xml = generate_rss(
+        &trieste_films,
+        "Cinema Ariston Trieste - La Cappella Underground",
+        "https://www.lacappellaunderground.org/ariston/programma/",
+        "Programmazione Cinema Ariston - La Cappella Underground",
+    )?;
+    let trieste_feed_path = trieste_scraper.rss_filename();
+    fs::write(&trieste_feed_path, trieste_rss_xml)?;
+    println!("✓ Trieste RSS feed saved to: {}", trieste_feed_path);
 
     // Single RSS feed for all rassegne (Cristallo + Edera),
     // with cinema names included per item via categories and titles.
