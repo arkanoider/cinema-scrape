@@ -39,6 +39,7 @@ impl CinemaScraper for RassegneScraperEdera {
             let document = Html::parse_document(&body);
             // Match both absolute and relative URLs that contain "rassegne/".
             let link_selector = Selector::parse("a[href*=\"rassegne/\"]")?;
+            let img_selector = Selector::parse("img")?;
             let mut links = Vec::new();
             let mut seen = HashSet::new();
 
@@ -56,7 +57,7 @@ impl CinemaScraper for RassegneScraperEdera {
                     if seen.insert(full_url.clone()) {
                         // Try to grab a poster image inside the link, if present.
                         let poster_url = a
-                            .select(&Selector::parse("img").unwrap())
+                            .select(&img_selector)
                             .next()
                             .and_then(|img| img.value().attr("src"))
                             .map(|src| {
