@@ -139,6 +139,20 @@ impl CinemaScraper for PortoAstraScraper {
                 .map(|t| t.to_string())
                 .collect();
 
+            // Poster: prefer real film poster served from appalcinema.it
+            let mut poster_url = None;
+            if let Ok(img_sel) = Selector::parse("img[src]") {
+                for img in doc.select(&img_sel) {
+                    if let Some(src) = img.value().attr("src") {
+                        let s = src.trim();
+                        if s.contains("appalcinema.") {
+                            poster_url = Some(s.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+
             let mut regia = None;
             let mut attori = None;
             let mut running_time = None;
@@ -192,7 +206,7 @@ impl CinemaScraper for PortoAstraScraper {
             films.push(Film {
                 title,
                 url: url.clone(),
-                poster_url: None,
+                poster_url,
                 cast,
                 release_date: None,
                 running_time,

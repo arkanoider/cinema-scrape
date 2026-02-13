@@ -130,14 +130,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_default();
     print_films(&porto_astra_films);
 
-    // Merged Padova RSS feed (Cinema Rex + Porto Astra)
-    let mut all_padova_films = padova_films;
-    all_padova_films.extend(porto_astra_films);
-    let padova_rss_xml = generate_rss(
-        &all_padova_films,
-        "Cinema Padova (Rex + Porto Astra)",
+    // Merged Padova RSS feed (Cinema Rex + Porto Astra),
+    // with per-item cinema names in title and category.
+    let padova_rss_xml = generate_rss_merged(
+        "Film in programmazione a Padova",
         "https://portoastra.it/questa-settimana/",
-        "Programmazione Cinema Rex Padova e Cinema Porto Astra",
+        "Programmazione Cinema Rex Padova e Cinema Porto Astra.",
+        &[
+            ("Cinema Rex Padova", padova_films.as_slice()),
+            ("Cinema Porto Astra", porto_astra_films.as_slice()),
+        ],
     )?;
     let padova_feed_path = padova_scraper.rss_filename();
     fs::write(&padova_feed_path, padova_rss_xml)?;
