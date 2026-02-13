@@ -51,6 +51,8 @@ struct RexTitolo {
     #[serde(default)]
     #[allow(dead_code)]
     locandina: String,
+    #[serde(default)]
+    categoria_film: String, // "y" for films, "n" for theater/music/etc
     eventi: Vec<RexEvento>,
 }
 
@@ -87,6 +89,11 @@ impl CinemaScraper for FeedPadovaScraper {
 
         let mut films = Vec::new();
         for t in data.titoli {
+            // Only include items categorized as "Film"
+            if t.categoria_film != "y" {
+                continue;
+            }
+
             let title = t.titolo.trim().to_string();
             if title.is_empty() {
                 continue;
