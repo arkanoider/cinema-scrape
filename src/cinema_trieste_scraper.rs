@@ -314,6 +314,6 @@ impl CinemaScraper for CinemaTriesteScraper {
     }
 
     fn rss_filename(&self) -> String {
-        "feed_trieste.xml".to_string()
+        "docs/feeds/trieste.xml".to_string()
     }
 }

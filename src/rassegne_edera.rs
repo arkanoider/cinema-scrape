@@ -185,6 +185,6 @@ impl CinemaScraper for RassegneScraperEdera {
     }
 
     fn rss_filename(&self) -> String {
-        "rassegne_edera.xml".to_string()
+        "docs/feeds/rassegne.xml".to_string()
     }
 }

@@ -1,5 +1,6 @@
 # Generate RSS feeds and commit them so they can be used as hosted feeds.
-# Feeds are available at: https://raw.githubusercontent.com/OWNER/REPO/BRANCH/<filename>.xml
+# Feeds are available via GitHub Pages at: https://OWNER.github.io/REPO/feeds/<filename>.xml
+# Also available via raw: https://raw.githubusercontent.com/OWNER/REPO/BRANCH/docs/feeds/<filename>.xml
 name: Update RSS feeds
 
 permissions:
@@ -27,16 +28,18 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Generate feeds
-        run: cargo run --release
+        run: |
+          mkdir -p docs/feeds
+          cargo run --release
         # SHOWING_DATE not set → app uses today for Space Cinema
 
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add feeds.xml
-          git add rassegne.xml
-          git add feed_trieste.xml
-          git add feed_padova.xml
+          git add docs/feeds/multisala.xml
+          git add docs/feeds/rassegne.xml
+          git add docs/feeds/trieste.xml
+          git add docs/feeds/padova.xml
           
           git diff --staged --quiet || (git commit -m "chore: update RSS feed [skip ci]" && git push)

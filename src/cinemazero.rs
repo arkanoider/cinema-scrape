@@ -323,6 +323,6 @@ impl CinemaScraper for CinemazeroScraper {
     }
 
     fn rss_filename(&self) -> String {
-        "cinemazero.xml".to_string()
+        "docs/feeds/cinemazero.xml".to_string()
     }
 }

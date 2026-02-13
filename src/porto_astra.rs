@@ -219,6 +219,6 @@ impl CinemaScraper for PortoAstraScraper {
     }
 
     fn rss_filename(&self) -> String {
-        "feed_padova.xml".to_string()
+        "docs/feeds/padova.xml".to_string()
     }
 }

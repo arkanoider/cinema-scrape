@@ -3,14 +3,26 @@ use reqwest::{Client, header};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 
-/// Scraper for Cinema Edera (uses HTML scraping)
+/// Base URL (origin) derived from a full URL, e.g. "https://www.cinemamanzoni.it"
+fn base_from_listing_url(listing_url: &str) -> String {
+    let after_proto = listing_url.find("://").map(|i| i + 3).unwrap_or(0);
+    let path_start = listing_url[after_proto..]
+        .find('/')
+        .map(|i| after_proto + i)
+        .unwrap_or(listing_url.len());
+    listing_url[..path_start].to_string()
+}
+
+/// Scraper for cinema sites that share the Edera HTML structure (e.g. Cinema Edera, Cinema Manzoni).
 pub struct CinemaEderaScraper {
     url: String,
+    base: String,
 }
 
 impl CinemaEderaScraper {
     pub fn new(url: String) -> Self {
-        Self { url }
+        let base = base_from_listing_url(&url);
+        Self { url, base }
     }
 }
 
@@ -48,7 +60,7 @@ impl CinemaScraper for CinemaEderaScraper {
             for row in table.select(&row_selector) {
                 for link in row.select(&link_selector) {
                     let href = link.value().attr("href").unwrap_or("");
-                    let full_url = format!("https://www.cinemaedera.it{}", href);
+                    let full_url = format!("{}{}", self.base, href);
                     if seen_urls.contains(&full_url) {
                         continue;
                     }
@@ -77,7 +89,7 @@ impl CinemaScraper for CinemaEderaScraper {
         };
 
         // Fetch each film page to get poster, movie__option info, and synopsis
-        let base = "https://www.cinemaedera.it";
+        let base = &self.base;
         let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
                  AppleWebKit/537.36 (KHTML, like Gecko) \
                  Chrome/143.0.0.0 Safari/537.36";
@@ -232,6 +244,6 @@ impl CinemaScraper for CinemaEderaScraper {
     }
 
     fn rss_filename(&self) -> String {
-        "cinema_edera.xml".to_string()
+        "docs/feeds/cinema_edera.xml".to_string()
     }
 }

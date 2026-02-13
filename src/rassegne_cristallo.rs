@@ -274,7 +274,7 @@ impl CinemaScraper for RassegneScraperCristallo {
     }
 
     fn rss_filename(&self) -> String {
-        "rassegne.xml".to_string()
+        "docs/feeds/rassegne.xml".to_string()
     }
 }
 

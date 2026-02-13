@@ -2,6 +2,7 @@ mod cinema_edera;
 mod cinema_padova;
 mod cinema_trieste_scraper;
 mod cinemazero;
+mod cinergia_conegliano;
 mod enrico_pizzuti;
 mod porto_astra;
 mod rassegne_cristallo;
@@ -13,6 +14,7 @@ use cinema_padova::FeedPadovaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
+use cinergia_conegliano::CinergiaConeglianoScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
 use porto_astra::PortoAstraScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
@@ -50,6 +52,9 @@ fn print_films(films: &[Film]) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Ensure docs/feeds directory exists
+    fs::create_dir_all("docs/feeds")?;
+
     // Build a client with cookie store
     let client = reqwest::Client::builder().cookie_store(true).build()?;
 
@@ -61,6 +66,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let edera_scraper = CinemaEderaScraper::new(
         "https://www.cinemaedera.it/i-film-della-settimana.html".to_string(),
     );
+    let manzoni_scraper = CinemaEderaScraper::new(
+        "https://www.cinemamanzoni.it/i-film-della-settimana.html".to_string(),
+    );
     let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
     let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
     let rassegne_scraper = RassegneScraperCristallo::new(
@@ -70,10 +78,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RassegneScraperEdera::new("https://www.cinemaedera.it/rassegne.html".to_string());
     let padova_scraper =
         FeedPadovaScraper::new("https://www.cinemarex.it/programmazione".to_string());
+    let cinergia_scraper =
+        CinergiaConeglianoScraper::new("https://coneglianocinergia.18tickets.it/".to_string());
 
     // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
     const EDERA_NAME: &str = "Cinema Multisala Edera";
+    const MANZONI_NAME: &str = "Cinema Multisala Manzoni";
+    const CINERGIA_NAME: &str = "Cinergia Conegliano";
     const PIZZUTI_NAME: &str = "Circolo Enrico Pizzuti";
     const CINEMAZERO_NAME: &str = "Cinemazero Pordenone";
 
@@ -85,6 +97,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Fetching from Cinema Edera ===\n");
     let edera_films = edera_scraper.fetch_films(&client).await.unwrap_or_default();
     print_films(&edera_films);
+
+    println!("\n=== Fetching from Cinema Manzoni ===\n");
+    let manzoni_films = manzoni_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&manzoni_films);
+
+    println!("\n=== Fetching from Cinergia Conegliano ===\n");
+    let cinergia_films = cinergia_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&cinergia_films);
 
     println!("\n=== Fetching from Circolo Enrico Pizzuti ===\n");
     let pizzuti_films = pizzuti_scraper
@@ -167,15 +193,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&trieste_feed_path, trieste_rss_xml)?;
     println!("✓ Trieste RSS feed saved to: {}", trieste_feed_path);
 
-    // Single RSS feed for all rassegne (Cristallo + Edera),
+    // Single RSS feed for all rassegne (Cristallo + Edera + Enrico Pizzuti),
     // with cinema names included per item via categories and titles.
     let rassegne_rss_xml = generate_rss_merged(
         "Rassegne",
         "https://github.com/", // optional: landing page
-        "Rassegne di Cinema Cristallo Oderzo e Cinema Edera.",
+        "Rassegne di Cinema Cristallo Oderzo, Cinema Edera e Circolo Enrico Pizzuti.",
         &[
             ("Cinema Cristallo Oderzo", rassegne_films.as_slice()),
             ("Cinema Edera", edera_rassegne_films.as_slice()),
+            (PIZZUTI_NAME, pizzuti_films.as_slice()),
         ],
     )?;
     let rassegne_feed_path = rassegne_scraper.rss_filename();
@@ -186,15 +213,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rss_xml = generate_rss_merged(
         "Film in programmazione",
         "https://github.com/", // optional: set to your repo or a landing page
-        "RSS unificato: The Space Cinema (Silea), Cinema Multisala Edera, Circolo Enrico Pizzuti, Cinemazero Pordenone.",
+        "RSS unificato: The Space Cinema (Silea), Cinema Multisala Edera, Cinema Manzoni, Cinergia Conegliano, Cinemazero Pordenone.",
         &[
             (SPACE_NAME, space_films.as_slice()),
             (EDERA_NAME, edera_films.as_slice()),
-            (PIZZUTI_NAME, pizzuti_films.as_slice()),
+            (MANZONI_NAME, manzoni_films.as_slice()),
+            (CINERGIA_NAME, cinergia_films.as_slice()),
             (CINEMAZERO_NAME, cinemazero_films.as_slice()),
         ],
     )?;
-    let feed_path = "feeds.xml";
+    let feed_path = "docs/feeds/multisala.xml";
     fs::write(feed_path, rss_xml)?;
     println!("✓ Merged RSS feed saved to: {}", feed_path);
     Ok(())

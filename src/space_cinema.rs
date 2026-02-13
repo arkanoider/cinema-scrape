@@ -173,6 +173,6 @@ impl CinemaScraper for SpaceCinemaScraper {
     }
 
     fn rss_filename(&self) -> String {
-        format!("space_cinema_{}.xml", self.cinema_id)
+        format!("docs/feeds/space_cinema_{}.xml", self.cinema_id)
     }
 }
