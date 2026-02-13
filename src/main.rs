@@ -1,18 +1,18 @@
 mod cinema_edera;
+mod cinema_padova;
 mod cinema_trieste_scraper;
 mod cinemazero;
 mod enrico_pizzuti;
-mod cinema_padova;
 mod rassegne_cristallo;
 mod rassegne_edera;
 mod space_cinema;
 
 use cinema_edera::CinemaEderaScraper;
+use cinema_padova::FeedPadovaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
-use cinema_padova::FeedPadovaScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
 use rassegne_edera::RassegneScraperEdera;
 use space_cinema::SpaceCinemaScraper;

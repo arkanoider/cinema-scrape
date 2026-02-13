@@ -13,13 +13,12 @@ fn canonical_film_key(url: &str) -> String {
         let segment = &url[last_slash + 1..];
         if segment.len() > 13 {
             let (prefix, suffix) = segment.split_at(segment.len() - 12);
-            if suffix.chars().all(|c| c.is_ascii_digit()) {
-                if let Some(last) = prefix.chars().last() {
-                    if last == '_' || last == '-' {
-                        let base = &prefix[..prefix.len() - 1];
-                        return format!("{}/{}/", &url[..=last_slash], base);
-                    }
-                }
+            if suffix.chars().all(|c| c.is_ascii_digit())
+                && let Some(last) = prefix.chars().last()
+                && (last == '_' || last == '-')
+            {
+                let base = &prefix[..prefix.len() - 1];
+                return format!("{}/{}/", &url[..=last_slash], base);
             }
         }
     }
@@ -146,15 +145,11 @@ impl CinemaScraper for CinemaTriesteScraper {
                     }) {
                         release_date = Some(year.to_string());
                     }
-                    if let Some(minutes) =
-                        s.split(|c: char| c == '′' || c == '\'')
-                            .next()
-                            .and_then(|p| {
-                                p.split_whitespace()
-                                    .last()
-                                    .and_then(|n| n.trim_matches(',').parse::<u32>().ok())
-                            })
-                    {
+                    if let Some(minutes) = s.split(['′', '\'']).next().and_then(|p| {
+                        p.split_whitespace()
+                            .last()
+                            .and_then(|n| n.trim_matches(',').parse::<u32>().ok())
+                    }) {
                         running_time = Some(minutes);
                     }
                     break;
@@ -226,7 +221,10 @@ impl CinemaScraper for CinemaTriesteScraper {
                 if text.starts_with("v.") || text.starts_with("Ingresso") {
                     continue;
                 }
-                if text.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ':') {
+                if text
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '.' || c == ':')
+                {
                     let time = text.replace('.', ":");
                     if !current_date.is_empty() {
                         let formatted = format!("{} ore {}", current_date, time);
@@ -244,7 +242,8 @@ impl CinemaScraper for CinemaTriesteScraper {
                         || text.contains("uglio") // luglio
                         || text.contains("osto")  // agosto
                         || text.contains("embre") // settembre, novembre, dicembre
-                        || text.contains("obre")) // ottobre
+                        || text.contains("obre"))
+                // ottobre
                 {
                     current_date = text;
                 }
