@@ -3,6 +3,7 @@ mod cinema_padova;
 mod cinema_trieste_scraper;
 mod cinemazero;
 mod enrico_pizzuti;
+mod porto_astra;
 mod rassegne_cristallo;
 mod rassegne_edera;
 mod space_cinema;
@@ -13,6 +14,7 @@ use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
 use enrico_pizzuti::EnricoPizzutiScraper;
+use porto_astra::PortoAstraScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
 use rassegne_edera::RassegneScraperEdera;
 use space_cinema::SpaceCinemaScraper;
@@ -119,12 +121,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_default();
     print_films(&padova_films);
 
-    // Padova RSS feed (single cinema)
+    println!("\n=== Fetching from Cinema Porto Astra Padova ===\n");
+    let porto_astra_scraper =
+        PortoAstraScraper::new("https://portoastra.it/questa-settimana/".to_string());
+    let porto_astra_films = porto_astra_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&porto_astra_films);
+
+    // Merged Padova RSS feed (Cinema Rex + Porto Astra)
+    let mut all_padova_films = padova_films;
+    all_padova_films.extend(porto_astra_films);
     let padova_rss_xml = generate_rss(
-        &padova_films,
-        "Cinema Rex Padova",
-        "https://www.cinemarex.it/programmazione",
-        "Programmazione Cinema Rex Padova",
+        &all_padova_films,
+        "Cinema Padova (Rex + Porto Astra)",
+        "https://portoastra.it/questa-settimana/",
+        "Programmazione Cinema Rex Padova e Cinema Porto Astra",
     )?;
     let padova_feed_path = padova_scraper.rss_filename();
     fs::write(&padova_feed_path, padova_rss_xml)?;
