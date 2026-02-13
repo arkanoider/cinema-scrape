@@ -16,10 +16,10 @@ This guide explains how to enable GitHub Pages for your RSS feeds.
 3. **Wait for deployment** - GitHub Pages typically takes 1-2 minutes to deploy. You'll see a green checkmark when it's ready.
 
 4. **Access your feeds** - Your feeds will be available at:
-   - `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/multisala.xml`
-   - `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/padova.xml`
-   - `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/trieste.xml`
-   - `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/rassegne.xml`
+   - `https://arkanoider.github.io/cinema-scrape/feeds/multisala.xml`
+   - `https://arkanoider.github.io/cinema-scrape/feeds/padova.xml`
+   - `https://arkanoider.github.io/cinema-scrape/feeds/trieste.xml`
+   - `https://arkanoider.github.io/cinema-scrape/feeds/rassegne.xml`
 
 ## How It Works
 
