@@ -115,10 +115,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     print_films(&edera_rassegne_films);
 
     println!("\n=== Fetching from Cinema Rex Padova ===\n");
-    let padova_films = padova_scraper
-        .fetch_films(&client)
-        .await
-        .unwrap_or_default();
+    let padova_films = match padova_scraper.fetch_films(&client).await {
+        Ok(films) => films,
+        Err(e) => {
+            eprintln!("Error fetching Cinema Rex Padova films: {e}");
+            Vec::new()
+        }
+    };
     print_films(&padova_films);
 
     println!("\n=== Fetching from Cinema Porto Astra Padova ===\n");
