@@ -1,10 +1,16 @@
 use crate::{CinemaScraper, Film};
 use chrono::{DateTime, Datelike};
-use reqwest::{header, Client};
+use reqwest::{Client, header};
 use serde::Deserialize;
 
 static IT_WEEKDAY: [&str; 7] = [
-    "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica",
+    "lunedì",
+    "martedì",
+    "mercoledì",
+    "giovedì",
+    "venerdì",
+    "sabato",
+    "domenica",
 ];
 
 fn format_showtime(dt: &DateTime<chrono::Utc>) -> String {
