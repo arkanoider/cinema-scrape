@@ -55,6 +55,7 @@ struct RexTitolo {
     #[serde(default)]
     descrizione: String,
     #[serde(default)]
+    #[allow(dead_code)]
     locandina: String,
     #[serde(default)]
     categoria_film: String, // "y" for films, "n" for theater/music/etc
@@ -122,13 +123,6 @@ impl CinemaScraper for FeedPadovaScraper {
                 Some(format!("Regia: {}", t.autore.trim()))
             };
 
-            // Convert base64 locandina to data URL for poster
-            let poster_url = if !t.locandina.is_empty() {
-                Some(format!("data:image/jpeg;base64,{}", t.locandina))
-            } else {
-                None
-            };
-
             let showtimes: Vec<String> = t
                 .eventi
                 .iter()
@@ -158,7 +152,7 @@ impl CinemaScraper for FeedPadovaScraper {
             films.push(Film {
                 title,
                 url,
-                poster_url,
+                poster_url: None,
                 cast,
                 release_date: None,
                 running_time,
