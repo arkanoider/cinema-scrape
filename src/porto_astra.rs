@@ -1,5 +1,5 @@
 use crate::{CinemaScraper, Film};
-use reqwest::{header, Client};
+use reqwest::{Client, header};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 
@@ -93,12 +93,12 @@ impl CinemaScraper for PortoAstraScraper {
 
             let doc = Html::parse_document(&body);
 
-            // Title: try <h1>, then first strong/bold text
+            // Title: try <h1>/<h2>/<h3>, then first strong/bold text
             let mut title = None;
-            if let Ok(h1_sel) = Selector::parse("h1")
-                && let Some(h1) = doc.select(&h1_sel).next()
+            if let Ok(h_sel) = Selector::parse("h1, h2, h3")
+                && let Some(h) = doc.select(&h_sel).next()
             {
-                let t = h1
+                let t = h
                     .text()
                     .map(|t| t.trim())
                     .filter(|t| !t.is_empty())
@@ -118,10 +118,7 @@ impl CinemaScraper for PortoAstraScraper {
                         .filter(|t| !t.is_empty())
                         .collect::<Vec<_>>()
                         .join(" ");
-                    if !t.is_empty()
-                        && !t.contains("REGIA")
-                        && !t.contains("ATTORI")
-                    {
+                    if !t.is_empty() && !t.contains("REGIA") && !t.contains("ATTORI") {
                         title = Some(t);
                         break;
                     }
@@ -132,26 +129,6 @@ impl CinemaScraper for PortoAstraScraper {
                 Some(t) => t,
                 None => continue,
             };
-
-            // Poster: first image under wp-content/uploads
-            let mut poster_url = None;
-            if let Ok(img_sel) = Selector::parse("img[src]") {
-                for img in doc.select(&img_sel) {
-                    if let Some(src) = img.value().attr("src") {
-                        let src = src.trim();
-                        if src.contains("wp-content/uploads") {
-                            poster_url = Some(if src.starts_with("http") {
-                                src.to_string()
-                            } else if src.starts_with('/') {
-                                format!("https://portoastra.it{}", src)
-                            } else {
-                                format!("https://portoastra.it/{}", src)
-                            });
-                            break;
-                        }
-                    }
-                }
-            }
 
             // Collect all text lines for simple parsing
             let all_text: Vec<String> = doc
@@ -167,6 +144,7 @@ impl CinemaScraper for PortoAstraScraper {
             let mut running_time = None;
             let mut synopsis_parts = Vec::new();
 
+            let mut after_duration = false;
             for line in &all_text {
                 if line.starts_with("REGIA:") {
                     regia = Some(line.trim_start_matches("REGIA:").trim().to_string());
@@ -177,21 +155,24 @@ impl CinemaScraper for PortoAstraScraper {
                     if let Some(min_str) = rest.split_whitespace().next() {
                         running_time = min_str.parse::<u32>().ok();
                     }
-                }
-            }
-
-            // Synopsis: first longish paragraph after metadata
-            for line in &all_text {
-                if line.starts_with("REGIA:")
-                    || line.starts_with("ATTORI:")
-                    || line.starts_with("Genere:")
-                    || line.starts_with("Durata:")
-                {
-                    continue;
-                }
-                if line.len() > 40 {
-                    synopsis_parts.push(line.clone());
-                    break;
+                    after_duration = true;
+                } else if after_duration {
+                    // Stop synopsis collection when we hit obvious non-synopsis markers
+                    if line.starts_with("Sito ufficiale")
+                        || line.starts_with("## ORARI")
+                        || line.contains('/')
+                    {
+                        break;
+                    }
+                    // Skip menu/footer and very short lines
+                    if line.len() > 40
+                        && !line.contains("Home")
+                        && !line.contains("Film della settimana")
+                        && !line.contains("Il cinema")
+                        && !line.contains("Info e costi")
+                    {
+                        synopsis_parts.push(line.clone());
+                    }
                 }
             }
 
@@ -211,7 +192,7 @@ impl CinemaScraper for PortoAstraScraper {
             films.push(Film {
                 title,
                 url: url.clone(),
-                poster_url,
+                poster_url: None,
                 cast,
                 release_date: None,
                 running_time,
