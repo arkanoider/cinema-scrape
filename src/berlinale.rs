@@ -18,7 +18,7 @@ fn extract_initial_result_json(html: &str) -> Option<serde_json::Value> {
     let mut in_string = false;
     let mut escape = false;
     let mut quote = 0u8;
-    let bytes = after[obj_start..].as_bytes();
+    let bytes = &after.as_bytes()[obj_start..];
     let mut end = 0usize;
     for (i, &b) in bytes.iter().enumerate() {
         if escape {
@@ -108,9 +108,7 @@ fn extract_film_urls_from_raw(html: &str, _base: &str) -> Vec<String> {
     for needle in ["/programme/", "\\/programme\\/"] {
         for (i, _) in html.match_indices(needle) {
             let after = &html[i + needle.len()..];
-            let end = after
-                .find(|c: char| !c.is_ascii_digit())
-                .unwrap_or(0);
+            let end = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(0);
             if end >= 6 {
                 let id = &after[..end];
                 let rest = after.get(end..).unwrap_or("");
@@ -129,7 +127,10 @@ fn extract_film_urls_from_raw(html: &str, _base: &str) -> Vec<String> {
             }
         }
     }
-    let mut v: Vec<String> = ids.into_iter().map(|id| format!("{}/en/2026/programme/{}.html", BASE, id)).collect();
+    let mut v: Vec<String> = ids
+        .into_iter()
+        .map(|id| format!("{}/en/2026/programme/{}.html", BASE, id))
+        .collect();
     v.sort();
     v
 }
@@ -208,7 +209,11 @@ impl CinemaScraper for BerlinaleScraper {
                             })
                         })
                 })
-                .map(|t| t.trim_end_matches(" | Berlinale").trim_end_matches(" – Berlinale").to_string())
+                .map(|t| {
+                    t.trim_end_matches(" | Berlinale")
+                        .trim_end_matches(" – Berlinale")
+                        .to_string()
+                })
                 .and_then(|t| if t.is_empty() { None } else { Some(t) })
                 .unwrap_or_default();
             if title.is_empty() || title.starts_with("https://") {
@@ -223,7 +228,11 @@ impl CinemaScraper for BerlinaleScraper {
                     arr.iter().find_map(|s| {
                         let uri = s.get("media")?.get("defaultImage")?.get("uri")?.as_str()?;
                         if uri.contains("plakate") || uri.contains("poster") {
-                            Some(if uri.starts_with("http") { uri.to_string() } else { format!("{}{}", BASE, uri) })
+                            Some(if uri.starts_with("http") {
+                                uri.to_string()
+                            } else {
+                                format!("{}{}", BASE, uri)
+                            })
                         } else {
                             None
                         }
@@ -235,75 +244,178 @@ impl CinemaScraper for BerlinaleScraper {
                         .and_then(|i| i.get("default"))
                         .and_then(|d| d.get("uri"))
                         .and_then(|u| u.as_str())
-                        .map(|s| if s.starts_with("http") { s.to_string() } else { format!("{}{}", BASE, s) })
-                })
-                .or_else(|| Selector::parse("meta[property=\"og:image\"]")
-                .ok()
-                .and_then(|sel| {
-                    doc.select(&sel)
-                        .next()
-                        .and_then(|m| m.value().attr("content").map(|s| {
-                            let s = s.trim();
+                        .map(|s| {
                             if s.starts_with("http") {
                                 s.to_string()
-                            } else if s.starts_with('/') {
-                                format!("{}{}", BASE, s)
                             } else {
-                                format!("{}/{}", BASE, s)
+                                format!("{}{}", BASE, s)
                             }
-                        }))
+                        })
                 })
-                )
                 .or_else(|| {
-                    Selector::parse("img[src*=\"berlinale\"], img[src*=\"programme\"]").ok().and_then(|sel| {
-                        doc.select(&sel).find_map(|img| {
-                            img.value().attr("src").map(|s| {
-                                let s = s.trim();
-                                if s.starts_with("http") {
-                                    s.to_string()
-                                } else if s.starts_with('/') {
-                                    format!("{}{}", BASE, s)
-                                } else {
-                                    format!("{}/{}", BASE, s)
-                                }
+                    Selector::parse("meta[property=\"og:image\"]")
+                        .ok()
+                        .and_then(|sel| {
+                            doc.select(&sel).next().and_then(|m| {
+                                m.value().attr("content").map(|s| {
+                                    let s = s.trim();
+                                    if s.starts_with("http") {
+                                        s.to_string()
+                                    } else if s.starts_with('/') {
+                                        format!("{}{}", BASE, s)
+                                    } else {
+                                        format!("{}/{}", BASE, s)
+                                    }
+                                })
                             })
                         })
-                    })
+                })
+                .or_else(|| {
+                    Selector::parse("img[src*=\"berlinale\"], img[src*=\"programme\"]")
+                        .ok()
+                        .and_then(|sel| {
+                            doc.select(&sel).find_map(|img| {
+                                img.value().attr("src").map(|s| {
+                                    let s = s.trim();
+                                    if s.starts_with("http") {
+                                        s.to_string()
+                                    } else if s.starts_with('/') {
+                                        format!("{}{}", BASE, s)
+                                    } else {
+                                        format!("{}/{}", BASE, s)
+                                    }
+                                })
+                            })
+                        })
                 });
 
-            let (mut running_time, mut cast, mut synopsis_parts, mut showtimes) = if let Some(ref j) = json {
-                let rt = j.get("meta").and_then(|m| m.as_array()).and_then(|a| a.get(0)).and_then(|s| s.as_str()).and_then(|s| {
-                    s.trim_end_matches('\'').trim().parse::<u32>().ok()
-                }).or_else(|| {
-                    j.get("events").and_then(|e| e.as_array()).and_then(|a| a.get(0))
-                        .and_then(|e| e.get("time")).and_then(|t| t.get("durationInMinutes")).and_then(|d| d.as_u64()).map(|n| n as u32)
-                });
-                let cast_str = j.get("castMembers").and_then(|c| c.as_array()).map(|arr| {
-                    arr.iter().filter_map(|m| m.get("name").and_then(|n| n.as_str())).collect::<Vec<_>>().join(", ")
-                }).or_else(|| {
-                    j.get("reducedCrewMembers").and_then(|r| r.as_array()).map(|arr| {
-                        arr.iter().filter_map(|m| m.get("name").and_then(|n| n.as_str())).collect::<Vec<_>>().join(", ")
-                    })
-                });
-                let syn = j.get("synopsis").and_then(|s| s.as_str()).map(|s| s.replace("<br />", "\n").replace("<br/>", "\n").trim().to_string()).unwrap_or_default();
-                let syn_vec = if syn.is_empty() { Vec::new() } else { vec![syn] };
-                let events: Vec<String> = j.get("events").and_then(|e| e.as_array()).map(|arr| {
-                    arr.iter().filter_map(|e| {
-                        let date = e.get("displayDate").and_then(|d| d.get("dayAndMonth")).and_then(|s| s.as_str()).unwrap_or("");
-                        let weekday = e.get("displayDate").and_then(|d| d.get("weekday")).and_then(|s| s.as_str()).unwrap_or("");
-                        let time = e.get("time").and_then(|t| t.get("text")).and_then(|s| s.as_str()).unwrap_or("");
-                        let venue = e.get("venueHall").and_then(|s| s.as_str()).unwrap_or("");
-                        if date.is_empty() && time.is_empty() {
-                            None
-                        } else {
-                            Some(format!("{} {} {} - {}", weekday, date, time, venue))
-                        }
-                    }).collect()
-                }).unwrap_or_default();
-                (rt, cast_str, syn_vec, events)
-            } else {
-                (None, None, Vec::new(), Vec::new())
-            };
+            let (mut running_time, mut cast, mut synopsis_parts, mut showtimes) =
+                if let Some(ref j) = json {
+                    let rt = j
+                        .get("meta")
+                        .and_then(|m| m.as_array())
+                        .and_then(|a| a.first())
+                        .and_then(|s| s.as_str())
+                        .and_then(|s| s.trim_end_matches('\'').trim().parse::<u32>().ok())
+                        .or_else(|| {
+                            j.get("events")
+                                .and_then(|e| e.as_array())
+                                .and_then(|a| a.first())
+                                .and_then(|e| e.get("time"))
+                                .and_then(|t| t.get("durationInMinutes"))
+                                .and_then(|d| d.as_u64())
+                                .map(|n| n as u32)
+                        });
+                    let by_crew = j
+                        .get("crewMembers")
+                        .and_then(|c| c.as_array())
+                        .and_then(|arr| {
+                            let parts: Vec<String> = arr
+                                .iter()
+                                .filter_map(|m| {
+                                    let func = m.get("function")?.as_str()?;
+                                    if func != "Director"
+                                        && func != "Screenplay"
+                                        && !func.eq_ignore_ascii_case("Screenplay based on")
+                                    {
+                                        return None;
+                                    }
+                                    let name = m
+                                        .get("names")?
+                                        .as_array()?
+                                        .first()?
+                                        .get("name")?
+                                        .as_str()?;
+                                    Some(format!("{} ({})", name, func))
+                                })
+                                .collect();
+                            if parts.is_empty() {
+                                None
+                            } else {
+                                Some("by ".to_string() + &parts.join(", "))
+                            }
+                        });
+                    let cast_names = j.get("castMembers").and_then(|c| c.as_array()).map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    });
+                    let cast_str = by_crew
+                        .or_else(|| {
+                            j.get("reducedCrewMembers")
+                                .and_then(|r| r.as_array())
+                                .map(|arr| {
+                                    "by ".to_string()
+                                        + &arr
+                                            .iter()
+                                            .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                })
+                        })
+                        .map(|by_line| {
+                            if let Some(ref cn) = cast_names {
+                                if cn.is_empty() {
+                                    by_line
+                                } else {
+                                    format!("{} Cast: {}", by_line, cn)
+                                }
+                            } else {
+                                by_line
+                            }
+                        });
+                    let syn = j
+                        .get("synopsis")
+                        .and_then(|s| s.as_str())
+                        .map(|s| {
+                            s.replace("<br />", "\n")
+                                .replace("<br/>", "\n")
+                                .trim()
+                                .to_string()
+                        })
+                        .unwrap_or_default();
+                    let syn_vec = if syn.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![syn]
+                    };
+                    let events: Vec<String> = j
+                        .get("events")
+                        .and_then(|e| e.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|e| {
+                                    let date = e
+                                        .get("displayDate")
+                                        .and_then(|d| d.get("dayAndMonth"))
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("");
+                                    let weekday = e
+                                        .get("displayDate")
+                                        .and_then(|d| d.get("weekday"))
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("");
+                                    let time = e
+                                        .get("time")
+                                        .and_then(|t| t.get("text"))
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("");
+                                    let venue =
+                                        e.get("venueHall").and_then(|s| s.as_str()).unwrap_or("");
+                                    if date.is_empty() && time.is_empty() {
+                                        None
+                                    } else {
+                                        Some(format!("{} {} {} - {}", weekday, date, time, venue))
+                                    }
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    (rt, cast_str, syn_vec, events)
+                } else {
+                    (None, None, Vec::new(), Vec::new())
+                };
 
             if synopsis_parts.is_empty() || cast.is_none() || showtimes.is_empty() {
                 let all_text: Vec<String> = doc
@@ -320,31 +432,47 @@ impl CinemaScraper for BerlinaleScraper {
                             running_time = num.parse::<u32>().ok();
                         }
                     }
-                    if cast.is_none() && (line.eq_ignore_ascii_case("Director:") || line.eq_ignore_ascii_case("Regie:")) {
-                        if let Some(next) = all_text.get(i + 1) {
-                            cast = Some(next.clone());
-                        }
+                    if cast.is_none()
+                        && (line.eq_ignore_ascii_case("Director:")
+                            || line.eq_ignore_ascii_case("Regie:"))
+                        && let Some(next) = all_text.get(i + 1)
+                    {
+                        cast = Some(next.clone());
                     }
-                    if cast.is_some() && line.eq_ignore_ascii_case("Cast:") {
-                        if let Some(next) = all_text.get(i + 1) {
-                            let existing = cast.take().unwrap_or_default();
-                            cast = Some(if existing.is_empty() { next.clone() } else { format!("{}. {}", existing, next) });
-                        }
+                    if cast.is_some()
+                        && line.eq_ignore_ascii_case("Cast:")
+                        && let Some(next) = all_text.get(i + 1)
+                    {
+                        let existing = cast.take().unwrap_or_default();
+                        cast = Some(if existing.is_empty() {
+                            next.clone()
+                        } else {
+                            format!("{}. {}", existing, next)
+                        });
                     }
-                    if synopsis_parts.is_empty() && (line.eq_ignore_ascii_case("Synopsis") || line.eq_ignore_ascii_case("Plot")) {
-                        for j in (i + 1)..all_text.len().min(i + 15) {
-                            let s = &all_text[j];
-                            if s.len() > 50 && !s.starts_with("http") && !s.eq_ignore_ascii_case("Director:") && !s.eq_ignore_ascii_case("Cast:") {
+                    if synopsis_parts.is_empty()
+                        && (line.eq_ignore_ascii_case("Synopsis")
+                            || line.eq_ignore_ascii_case("Plot"))
+                    {
+                        for s in all_text.iter().skip(i + 1).take(14) {
+                            if s.len() > 50
+                                && !s.starts_with("http")
+                                && !s.eq_ignore_ascii_case("Director:")
+                                && !s.eq_ignore_ascii_case("Cast:")
+                            {
                                 synopsis_parts.push(s.clone());
                             } else if s.len() < 10 {
                                 break;
                             }
                         }
                     }
-                    if showtimes.is_empty() && (line.contains("Screenings") || line.contains("Februar") || line.contains("February")) {
-                        if line.contains(':') || line.chars().any(|c| c.is_ascii_digit()) {
-                            showtimes.push(line.clone());
-                        }
+                    if showtimes.is_empty()
+                        && (line.contains("Screenings")
+                            || line.contains("Februar")
+                            || line.contains("February"))
+                        && (line.contains(':') || line.chars().any(|c| c.is_ascii_digit()))
+                    {
+                        showtimes.push(line.clone());
                     }
                 }
             }
@@ -354,7 +482,11 @@ impl CinemaScraper for BerlinaleScraper {
             } else {
                 Some(synopsis_parts.join("\n\n"))
             };
-            let showtimes = if showtimes.is_empty() { None } else { Some(showtimes) };
+            let showtimes = if showtimes.is_empty() {
+                None
+            } else {
+                Some(showtimes)
+            };
 
             films.push(Film {
                 title,

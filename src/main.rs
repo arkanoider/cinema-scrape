@@ -232,7 +232,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Merged RSS feed saved to: {}", feed_path);
 
     println!("\n=== Fetching from Berlinale ===\n");
-    let berlinale_films = berlinale_scraper.fetch_films(&client).await.unwrap_or_default();
+    let berlinale_films = berlinale_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
     print_films(&berlinale_films);
 
     let berlinale_rss_xml = generate_rss(
