@@ -41,5 +41,6 @@ jobs:
           git add docs/feeds/rassegne.xml
           git add docs/feeds/trieste.xml
           git add docs/feeds/padova.xml
+          git add docs/feeds/berlinale.xml
           
           git diff --staged --quiet || (git commit -m "chore: update RSS feed [skip ci]" && git push)

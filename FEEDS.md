@@ -16,6 +16,9 @@ All RSS feeds are located in the `docs/feeds/` directory and are served via **Gi
 **Special feeds:**
 - `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/rassegne.xml` - Rassegne from Cinema Cristallo Oderzo, Cinema Edera e Circolo Enrico Pizzuti
 
+**Festival:**
+- `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/berlinale.xml` - Berlinale (Berlin International Film Festival) programme
+
 ### Alternative: Raw GitHub URLs
 
 Feeds are also available via raw GitHub URLs (works without GitHub Pages):
@@ -23,6 +26,7 @@ Feeds are also available via raw GitHub URLs (works without GitHub Pages):
 - `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/padova.xml`
 - `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/trieste.xml`
 - `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/rassegne.xml`
+- `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/berlinale.xml`
 
 | Category in main feed | Cinema |
 |----------------------|--------|

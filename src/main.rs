@@ -1,3 +1,4 @@
+mod berlinale;
 mod cinema_edera;
 mod cinema_padova;
 mod cinema_trieste_scraper;
@@ -9,6 +10,7 @@ mod rassegne_cristallo;
 mod rassegne_edera;
 mod space_cinema;
 
+use berlinale::BerlinaleScraper;
 use cinema_edera::CinemaEderaScraper;
 use cinema_padova::FeedPadovaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
@@ -80,6 +82,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         FeedPadovaScraper::new("https://www.cinemarex.it/programmazione".to_string());
     let cinergia_scraper =
         CinergiaConeglianoScraper::new("https://coneglianocinergia.18tickets.it/".to_string());
+    let berlinale_scraper = BerlinaleScraper::new(
+        "https://www.berlinale.de/en/programme/on-sale-from-today.html".to_string(),
+    );
 
     // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
@@ -225,5 +230,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let feed_path = "docs/feeds/multisala.xml";
     fs::write(feed_path, rss_xml)?;
     println!("✓ Merged RSS feed saved to: {}", feed_path);
+
+    println!("\n=== Fetching from Berlinale ===\n");
+    let berlinale_films = berlinale_scraper.fetch_films(&client).await.unwrap_or_default();
+    print_films(&berlinale_films);
+
+    let berlinale_rss_xml = generate_rss(
+        &berlinale_films,
+        "Berlinale - Berlin International Film Festival",
+        "https://www.berlinale.de/en/programme/on-sale-from-today.html",
+        "Films in the Berlinale programme (on sale / in programme).",
+    )?;
+    let berlinale_feed_path = berlinale_scraper.rss_filename();
+    fs::write(&berlinale_feed_path, berlinale_rss_xml)?;
+    println!("✓ Berlinale RSS feed saved to: {}", berlinale_feed_path);
+
     Ok(())
 }
