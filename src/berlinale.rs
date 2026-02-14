@@ -289,7 +289,7 @@ impl CinemaScraper for BerlinaleScraper {
                         })
                 });
 
-            let (mut running_time, mut cast, mut synopsis_parts, mut showtimes) =
+            let (mut running_time, mut cast, mut synopsis_parts, mut showtimes, mut director_for_title) =
                 if let Some(ref j) = json {
                     let rt = j
                         .get("meta")
@@ -341,6 +341,35 @@ impl CinemaScraper for BerlinaleScraper {
                             .collect::<Vec<_>>()
                             .join(", ")
                     });
+                    let director_for_title = j
+                        .get("crewMembers")
+                        .and_then(|c| c.as_array())
+                        .and_then(|arr| {
+                            arr.iter().find(|m| {
+                                m.get("function").and_then(|f| f.as_str()) == Some("Director")
+                            })
+                        })
+                        .and_then(|m| {
+                            m.get("names")?
+                                .as_array()?
+                                .first()?
+                                .get("name")?
+                                .as_str()
+                                .map(String::from)
+                        })
+                        .or_else(|| {
+                            j.get("reducedCrewMembers")
+                                .and_then(|r| r.as_array())
+                                .and_then(|arr| {
+                                    arr.iter().find_map(|m| {
+                                        m.get("name")
+                                            .and_then(|n| n.as_str())
+                                            .and_then(|s| {
+                                                s.strip_suffix(" (Director)").map(String::from)
+                                            })
+                                    })
+                                })
+                        });
                     let cast_str = by_crew
                         .or_else(|| {
                             j.get("reducedCrewMembers")
@@ -412,9 +441,9 @@ impl CinemaScraper for BerlinaleScraper {
                                 .collect()
                         })
                         .unwrap_or_default();
-                    (rt, cast_str, syn_vec, events)
+                    (rt, cast_str, syn_vec, events, director_for_title)
                 } else {
-                    (None, None, Vec::new(), Vec::new())
+                    (None, None, Vec::new(), Vec::new(), None)
                 };
 
             if synopsis_parts.is_empty() || cast.is_none() || showtimes.is_empty() {
@@ -438,6 +467,7 @@ impl CinemaScraper for BerlinaleScraper {
                         && let Some(next) = all_text.get(i + 1)
                     {
                         cast = Some(next.clone());
+                        director_for_title = Some(next.clone());
                     }
                     if cast.is_some()
                         && line.eq_ignore_ascii_case("Cast:")
@@ -488,8 +518,12 @@ impl CinemaScraper for BerlinaleScraper {
                 Some(showtimes)
             };
 
+            let display_title = director_for_title
+                .as_ref()
+                .map(|d| format!("{} by {}", title.trim(), d))
+                .unwrap_or_else(|| title.clone());
             films.push(Film {
-                title,
+                title: display_title,
                 url: url.clone(),
                 poster_url,
                 cast,
