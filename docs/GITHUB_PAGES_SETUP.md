@@ -20,6 +20,8 @@ This guide explains how to enable GitHub Pages for your RSS feeds.
    - `https://arkanoider.github.io/cinema-scrape/feeds/padova.xml`
    - `https://arkanoider.github.io/cinema-scrape/feeds/trieste.xml`
    - `https://arkanoider.github.io/cinema-scrape/feeds/rassegne.xml`
+   - `https://arkanoider.github.io/cinema-scrape/feeds/berlinale.xml`
+   - `https://arkanoider.github.io/cinema-scrape/feeds/tarantino.xml`
 
 ## How It Works
 

@@ -1,5 +1,6 @@
 mod berlinale;
 mod cinema_edera;
+mod new_bev;
 mod cinema_padova;
 mod cinema_trieste_scraper;
 mod cinemazero;
@@ -12,6 +13,7 @@ mod space_cinema;
 
 use berlinale::BerlinaleScraper;
 use cinema_edera::CinemaEderaScraper;
+use new_bev::NewBevScraper;
 use cinema_padova::FeedPadovaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
@@ -85,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let berlinale_scraper = BerlinaleScraper::new(
         "https://www.berlinale.de/en/programme/on-sale-from-today.html".to_string(),
     );
+    let new_bev_scraper = NewBevScraper::new();
 
     // Fetch all cinemas (names used as categories in the merged feed)
     const SPACE_NAME: &str = "The Space Cinema - Silea";
@@ -247,6 +250,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let berlinale_feed_path = berlinale_scraper.rss_filename();
     fs::write(&berlinale_feed_path, berlinale_rss_xml)?;
     println!("✓ Berlinale RSS feed saved to: {}", berlinale_feed_path);
+
+    println!("\n=== Fetching from The New Beverly Cinema ===\n");
+    let new_bev_films = new_bev_scraper
+        .fetch_films(&client)
+        .await
+        .unwrap_or_default();
+    print_films(&new_bev_films);
+
+    let new_bev_rss_xml = generate_rss(
+        &new_bev_films,
+        "The New Beverly Cinema",
+        "https://thenewbev.com/schedule/",
+        "Schedule and program for The New Beverly Cinema (Quentin Tarantino's revival theater in Los Angeles).",
+    )?;
+    let new_bev_feed_path = new_bev_scraper.rss_filename();
+    fs::write(&new_bev_feed_path, new_bev_rss_xml)?;
+    println!("✓ New Beverly RSS feed saved to: {}", new_bev_feed_path);
 
     Ok(())
 }

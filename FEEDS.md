@@ -19,6 +19,9 @@ All RSS feeds are located in the `docs/feeds/` directory and are served via **Gi
 **Festival:**
 - `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/berlinale.xml` - Berlinale (Berlin International Film Festival) programme
 
+**Cinema:**
+- `https://YOUR_USERNAME.github.io/YOUR_REPO/feeds/tarantino.xml` - The New Beverly Cinema (Quentin Tarantino's revival theater, Los Angeles)
+
 ### Alternative: Raw GitHub URLs
 
 Feeds are also available via raw GitHub URLs (works without GitHub Pages):
@@ -27,6 +30,7 @@ Feeds are also available via raw GitHub URLs (works without GitHub Pages):
 - `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/trieste.xml`
 - `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/rassegne.xml`
 - `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/berlinale.xml`
+- `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/feeds/tarantino.xml`
 
 | Category in main feed | Cinema |
 |----------------------|--------|
