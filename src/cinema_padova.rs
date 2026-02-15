@@ -26,7 +26,8 @@ fn format_showtime(dt: &DateTime<chrono::Utc>) -> String {
 }
 
 const JSON_URL: &str = "https://www.cinemarex.it/pages/rexJsonCompact.php";
-const PROGRAMMAZIONE_BASE: &str = "https://www.cinemarex.it/programmazione";
+const TICKET_BASE: &str = "https://ticket.cinebot.it/rex/titolo";
+const PROGRAMMAZIONE_FALLBACK: &str = "https://www.cinemarex.it/programmazione";
 
 /// Scraper for Cinema Rex Padova (uses JSON API; programmazione page is JS-rendered).
 pub struct FeedPadovaScraper {
@@ -65,14 +66,8 @@ struct RexTitolo {
 #[derive(Debug, Deserialize)]
 struct RexEvento {
     inizio: i64, // milliseconds since epoch
-}
-
-fn event_name_slug(titolo: &str) -> String {
-    titolo
-        .to_lowercase()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect::<String>()
+    #[serde(default)]
+    id_cinebot: String, // e.g. "1028" -> https://ticket.cinebot.it/rex/titolo/1028
 }
 
 #[async_trait::async_trait]
@@ -105,8 +100,19 @@ impl CinemaScraper for FeedPadovaScraper {
                 continue;
             }
 
-            let slug = event_name_slug(&title);
-            let url = format!("{}/evento?eventName={}", PROGRAMMAZIONE_BASE, slug);
+            // Prefer ticket page (working link); fallback to programmazione if no id_cinebot
+            let url = t
+                .eventi
+                .first()
+                .and_then(|e| {
+                    let id = e.id_cinebot.trim();
+                    if id.is_empty() {
+                        None
+                    } else {
+                        Some(format!("{}/{}", TICKET_BASE, id))
+                    }
+                })
+                .unwrap_or_else(|| PROGRAMMAZIONE_FALLBACK.to_string());
 
             let running_time = t.durata.trim().parse::<u32>().ok();
 
