@@ -1,26 +1,26 @@
 mod berlinale;
 mod cinema_edera;
-mod new_bev;
 mod cinema_padova;
 mod cinema_trieste_scraper;
 mod cinemazero;
 mod cinergia_conegliano;
 mod enrico_pizzuti;
+mod new_bev;
 mod porto_astra;
 mod rassegne_cristallo;
 mod rassegne_edera;
 mod space_cinema;
 
-use clap::{Parser, ValueEnum};
 use berlinale::BerlinaleScraper;
 use cinema_edera::CinemaEderaScraper;
-use new_bev::NewBevScraper;
 use cinema_padova::FeedPadovaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
 use cinergia_conegliano::CinergiaConeglianoScraper;
+use clap::{Parser, ValueEnum};
 use enrico_pizzuti::EnricoPizzutiScraper;
+use new_bev::NewBevScraper;
 use porto_astra::PortoAstraScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
 use rassegne_edera::RassegneScraperEdera;
@@ -100,7 +100,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         let cinergia_scraper =
             CinergiaConeglianoScraper::new("https://coneglianocinergia.18tickets.it/".to_string());
-        let cinemazero_scraper = CinemazeroScraper::new("https://cinemazero.it/".to_string());
+        let cinemazero_scraper =
+            CinemazeroScraper::new("https://cinemazero.it/programmazione/".to_string());
 
         println!("=== Fetching from The Space Cinema ===\n");
         space_scraper.warm_up(&client).await?;
@@ -216,7 +217,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         let edera_rassegne_scraper =
             RassegneScraperEdera::new("https://www.cinemaedera.it/rassegne.html".to_string());
-        let pizzuti_scraper = EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
+        let pizzuti_scraper =
+            EnricoPizzutiScraper::new("https://www.enricopizzuti.it/".to_string());
 
         println!("\n=== Fetching from Cinema Cristallo Oderzo - Rassegna Film d'Autore ===\n");
         let rassegne_films = rassegne_scraper

@@ -289,162 +289,161 @@ impl CinemaScraper for BerlinaleScraper {
                         })
                 });
 
-            let (mut running_time, mut cast, mut synopsis_parts, mut showtimes, mut director_for_title) =
-                if let Some(ref j) = json {
-                    let rt = j
-                        .get("meta")
-                        .and_then(|m| m.as_array())
-                        .and_then(|a| a.first())
-                        .and_then(|s| s.as_str())
-                        .and_then(|s| s.trim_end_matches('\'').trim().parse::<u32>().ok())
-                        .or_else(|| {
-                            j.get("events")
-                                .and_then(|e| e.as_array())
-                                .and_then(|a| a.first())
-                                .and_then(|e| e.get("time"))
-                                .and_then(|t| t.get("durationInMinutes"))
-                                .and_then(|d| d.as_u64())
-                                .map(|n| n as u32)
-                        });
-                    let by_crew = j
-                        .get("crewMembers")
-                        .and_then(|c| c.as_array())
-                        .and_then(|arr| {
-                            let parts: Vec<String> = arr
-                                .iter()
-                                .filter_map(|m| {
-                                    let func = m.get("function")?.as_str()?;
-                                    if func != "Director"
-                                        && func != "Screenplay"
-                                        && !func.eq_ignore_ascii_case("Screenplay based on")
-                                    {
-                                        return None;
-                                    }
-                                    let name = m
-                                        .get("names")?
-                                        .as_array()?
-                                        .first()?
-                                        .get("name")?
-                                        .as_str()?;
-                                    Some(format!("{} ({})", name, func))
-                                })
-                                .collect();
-                            if parts.is_empty() {
-                                None
-                            } else {
-                                Some("by ".to_string() + &parts.join(", "))
-                            }
-                        });
-                    let cast_names = j.get("castMembers").and_then(|c| c.as_array()).map(|arr| {
-                        arr.iter()
-                            .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
-                            .collect::<Vec<_>>()
-                            .join(", ")
+            let (
+                mut running_time,
+                mut cast,
+                mut synopsis_parts,
+                mut showtimes,
+                mut director_for_title,
+            ) = if let Some(ref j) = json {
+                let rt = j
+                    .get("meta")
+                    .and_then(|m| m.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|s| s.as_str())
+                    .and_then(|s| s.trim_end_matches('\'').trim().parse::<u32>().ok())
+                    .or_else(|| {
+                        j.get("events")
+                            .and_then(|e| e.as_array())
+                            .and_then(|a| a.first())
+                            .and_then(|e| e.get("time"))
+                            .and_then(|t| t.get("durationInMinutes"))
+                            .and_then(|d| d.as_u64())
+                            .map(|n| n as u32)
                     });
-                    let director_for_title = j
-                        .get("crewMembers")
-                        .and_then(|c| c.as_array())
-                        .and_then(|arr| {
-                            arr.iter().find(|m| {
-                                m.get("function").and_then(|f| f.as_str()) == Some("Director")
+                let by_crew = j
+                    .get("crewMembers")
+                    .and_then(|c| c.as_array())
+                    .and_then(|arr| {
+                        let parts: Vec<String> = arr
+                            .iter()
+                            .filter_map(|m| {
+                                let func = m.get("function")?.as_str()?;
+                                if func != "Director"
+                                    && func != "Screenplay"
+                                    && !func.eq_ignore_ascii_case("Screenplay based on")
+                                {
+                                    return None;
+                                }
+                                let name =
+                                    m.get("names")?.as_array()?.first()?.get("name")?.as_str()?;
+                                Some(format!("{} ({})", name, func))
                             })
+                            .collect();
+                        if parts.is_empty() {
+                            None
+                        } else {
+                            Some("by ".to_string() + &parts.join(", "))
+                        }
+                    });
+                let cast_names = j.get("castMembers").and_then(|c| c.as_array()).map(|arr| {
+                    arr.iter()
+                        .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                });
+                let director_for_title = j
+                    .get("crewMembers")
+                    .and_then(|c| c.as_array())
+                    .and_then(|arr| {
+                        arr.iter().find(|m| {
+                            m.get("function").and_then(|f| f.as_str()) == Some("Director")
                         })
-                        .and_then(|m| {
-                            m.get("names")?
-                                .as_array()?
-                                .first()?
-                                .get("name")?
-                                .as_str()
-                                .map(String::from)
-                        })
-                        .or_else(|| {
-                            j.get("reducedCrewMembers")
-                                .and_then(|r| r.as_array())
-                                .and_then(|arr| {
-                                    arr.iter().find_map(|m| {
-                                        m.get("name")
-                                            .and_then(|n| n.as_str())
-                                            .and_then(|s| {
-                                                s.strip_suffix(" (Director)").map(String::from)
-                                            })
+                    })
+                    .and_then(|m| {
+                        m.get("names")?
+                            .as_array()?
+                            .first()?
+                            .get("name")?
+                            .as_str()
+                            .map(String::from)
+                    })
+                    .or_else(|| {
+                        j.get("reducedCrewMembers")
+                            .and_then(|r| r.as_array())
+                            .and_then(|arr| {
+                                arr.iter().find_map(|m| {
+                                    m.get("name").and_then(|n| n.as_str()).and_then(|s| {
+                                        s.strip_suffix(" (Director)").map(String::from)
                                     })
                                 })
-                        });
-                    let cast_str = by_crew
-                        .or_else(|| {
-                            j.get("reducedCrewMembers")
-                                .and_then(|r| r.as_array())
-                                .map(|arr| {
-                                    "by ".to_string()
-                                        + &arr
-                                            .iter()
-                                            .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
-                                            .collect::<Vec<_>>()
-                                            .join(", ")
-                                })
-                        })
-                        .map(|by_line| {
-                            if let Some(ref cn) = cast_names {
-                                if cn.is_empty() {
-                                    by_line
-                                } else {
-                                    format!("{} Cast: {}", by_line, cn)
-                                }
-                            } else {
+                            })
+                    });
+                let cast_str = by_crew
+                    .or_else(|| {
+                        j.get("reducedCrewMembers")
+                            .and_then(|r| r.as_array())
+                            .map(|arr| {
+                                "by ".to_string()
+                                    + &arr
+                                        .iter()
+                                        .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                            })
+                    })
+                    .map(|by_line| {
+                        if let Some(ref cn) = cast_names {
+                            if cn.is_empty() {
                                 by_line
+                            } else {
+                                format!("{} Cast: {}", by_line, cn)
                             }
-                        });
-                    let syn = j
-                        .get("synopsis")
-                        .and_then(|s| s.as_str())
-                        .map(|s| {
-                            s.replace("<br />", "\n")
-                                .replace("<br/>", "\n")
-                                .trim()
-                                .to_string()
-                        })
-                        .unwrap_or_default();
-                    let syn_vec = if syn.is_empty() {
-                        Vec::new()
-                    } else {
-                        vec![syn]
-                    };
-                    let events: Vec<String> = j
-                        .get("events")
-                        .and_then(|e| e.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|e| {
-                                    let date = e
-                                        .get("displayDate")
-                                        .and_then(|d| d.get("dayAndMonth"))
-                                        .and_then(|s| s.as_str())
-                                        .unwrap_or("");
-                                    let weekday = e
-                                        .get("displayDate")
-                                        .and_then(|d| d.get("weekday"))
-                                        .and_then(|s| s.as_str())
-                                        .unwrap_or("");
-                                    let time = e
-                                        .get("time")
-                                        .and_then(|t| t.get("text"))
-                                        .and_then(|s| s.as_str())
-                                        .unwrap_or("");
-                                    let venue =
-                                        e.get("venueHall").and_then(|s| s.as_str()).unwrap_or("");
-                                    if date.is_empty() && time.is_empty() {
-                                        None
-                                    } else {
-                                        Some(format!("{} {} {} - {}", weekday, date, time, venue))
-                                    }
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    (rt, cast_str, syn_vec, events, director_for_title)
+                        } else {
+                            by_line
+                        }
+                    });
+                let syn = j
+                    .get("synopsis")
+                    .and_then(|s| s.as_str())
+                    .map(|s| {
+                        s.replace("<br />", "\n")
+                            .replace("<br/>", "\n")
+                            .trim()
+                            .to_string()
+                    })
+                    .unwrap_or_default();
+                let syn_vec = if syn.is_empty() {
+                    Vec::new()
                 } else {
-                    (None, None, Vec::new(), Vec::new(), None)
+                    vec![syn]
                 };
+                let events: Vec<String> = j
+                    .get("events")
+                    .and_then(|e| e.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|e| {
+                                let date = e
+                                    .get("displayDate")
+                                    .and_then(|d| d.get("dayAndMonth"))
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("");
+                                let weekday = e
+                                    .get("displayDate")
+                                    .and_then(|d| d.get("weekday"))
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("");
+                                let time = e
+                                    .get("time")
+                                    .and_then(|t| t.get("text"))
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("");
+                                let venue =
+                                    e.get("venueHall").and_then(|s| s.as_str()).unwrap_or("");
+                                if date.is_empty() && time.is_empty() {
+                                    None
+                                } else {
+                                    Some(format!("{} {} {} - {}", weekday, date, time, venue))
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                (rt, cast_str, syn_vec, events, director_for_title)
+            } else {
+                (None, None, Vec::new(), Vec::new(), None)
+            };
 
             if synopsis_parts.is_empty() || cast.is_none() || showtimes.is_empty() {
                 let all_text: Vec<String> = doc

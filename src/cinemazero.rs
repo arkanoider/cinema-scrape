@@ -1,10 +1,15 @@
 use crate::{CinemaScraper, Film};
 use reqwest::{Client, header};
 use scraper::{Html, Selector};
+use std::collections::HashSet;
 
-/// Scraper for Cinemazero (homepage "Il programma di oggi" section).
-// Fetches daily program and parses detail pages.
+const PROGRAMMAZIONE_URL: &str = "https://cinemazero.it/programmazione/";
+const CINEMAZERO_FILM_PREFIX: &str = "https://cinemazero.it/film/";
+
+/// Scraper for Cinemazero. Fetches the programmazione listing, collects film detail URLs,
+/// then opens each film page to extract poster, synopsis, cast, regia and durata.
 pub struct CinemazeroScraper {
+    #[allow(dead_code)]
     url: String,
 }
 
@@ -17,11 +22,10 @@ impl CinemazeroScraper {
 #[async_trait::async_trait]
 impl CinemaScraper for CinemazeroScraper {
     async fn fetch_films(&self, client: &Client) -> Result<Vec<Film>, Box<dyn std::error::Error>> {
-        // 1) Fetch homepage and collect unique film URLs from any link
-        //    pointing to /film/... . This naturally reflects today's
-        //    programme ("Oggi al Cinema" / "Il programma di oggi").
+        // 1) Fetch programmazione listing and collect unique film detail URLs.
+        //    Only links to cinemazero.it/film/... (exclude 18tickets, etc.).
         let resp = client
-            .get(&self.url)
+            .get(PROGRAMMAZIONE_URL)
             .header(
                 header::USER_AGENT,
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
@@ -37,33 +41,38 @@ impl CinemaScraper for CinemazeroScraper {
             let document = Html::parse_document(&body);
             let link_selector =
                 Selector::parse("a[href]").map_err(|e| format!("selector error: {e}"))?;
-            let mut film_urls: Vec<String> = Vec::new();
-            let mut seen = std::collections::HashSet::new();
+            let mut seen: HashSet<String> = HashSet::new();
+            let mut list: Vec<String> = Vec::new();
 
             for a in document.select(&link_selector) {
-                if let Some(href) = a.value().attr("href")
-                    && href.contains("/film/")
-                {
-                    let absolute = if href.starts_with("http") {
-                        href.to_string()
-                    } else {
-                        format!("https://cinemazero.it{}", href)
-                    };
-                    if seen.insert(absolute.clone()) {
-                        film_urls.push(absolute);
-                    }
+                let href = match a.value().attr("href") {
+                    Some(h) => h.trim(),
+                    None => continue,
+                };
+                if !href.contains("/film/") {
+                    continue;
+                }
+                let absolute = if href.starts_with("http") {
+                    href.to_string()
+                } else if href.starts_with('/') {
+                    format!("https://cinemazero.it{}", href)
+                } else {
+                    format!("https://cinemazero.it/{}", href)
+                };
+                // Only cinemazero.it film pages (exclude 18tickets, multisala, etc.)
+                if absolute.starts_with(CINEMAZERO_FILM_PREFIX) && seen.insert(absolute.clone()) {
+                    list.push(absolute);
                 }
             }
 
-            film_urls
+            list
         };
 
         if film_urls.is_empty() {
             return Ok(Vec::new());
         }
 
-        // 2) For each film URL, open its detail page and extract
-        //    title, synopsis, metadata and showtimes.
+        // 2) Open each film detail page and extract poster_url, sinossi, cast, regia, durata, showtimes.
         let mut films = Vec::new();
 
         for url in film_urls {
@@ -82,15 +91,36 @@ impl CinemaScraper for CinemazeroScraper {
             let body = resp.text().await?;
             let doc = Html::parse_document(&body);
 
-            // Poster: <img ... alt="Immagine del film La grazia"> etc.
+            // Poster: <img ... alt="Immagine del film ..." src="..."> (may be relative or absolute)
             let mut poster_url: Option<String> = None;
             if let Ok(img_sel) = Selector::parse("img[alt*=\"Immagine del film\"]")
                 && let Some(img) = doc.select(&img_sel).next()
                 && let Some(src) = img.value().attr("src")
-                && !src.trim().is_empty()
             {
-                poster_url = Some(src.to_string());
+                let s = src.trim();
+                if !s.is_empty() {
+                    poster_url = Some(if s.starts_with("http") {
+                        s.to_string()
+                    } else if s.starts_with('/') {
+                        format!("https://cinemazero.it{s}")
+                    } else {
+                        format!("https://cinemazero.it/{s}")
+                    });
+                }
             }
+
+            // Uscita (release year): <span aria-label="Uscita">2025</span>
+            let release_date: Option<String> = Selector::parse("span[aria-label=\"Uscita\"]")
+                .ok()
+                .and_then(|sel| doc.select(&sel).next())
+                .and_then(|span| {
+                    let t: String = span
+                        .text()
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    if t.is_empty() { None } else { Some(t) }
+                });
 
             // Collect all non-empty text nodes, in order, so we can parse
             // sections like "Genere", "Regia", "Cast", "Programmazione e orari".
@@ -135,42 +165,87 @@ impl CinemaScraper for CinemazeroScraper {
             let mut regia: Option<String> = None;
             let mut cast_line: Option<String> = None;
 
+            // First pass: find Genere, Regia, Cast in the whole text (they are often on their own
+            // line with the value on the next line, or "Label value" on one line).
+            for (i, s) in all_text.iter().enumerate() {
+                let trimmed = s.trim();
+                let label = trimmed.to_lowercase();
+                if label == "genere" {
+                    if let Some(next) = all_text.get(i + 1) {
+                        let val = next.trim();
+                        if !val.is_empty() && !val.to_lowercase().starts_with("regia") {
+                            genere = Some(val.to_string());
+                        }
+                    }
+                    break;
+                }
+                if label.starts_with("genere ") {
+                    let val = trimmed["Genere".len()..]
+                        .trim_matches(|c: char| c == ':' || c.is_whitespace());
+                    if !val.is_empty() {
+                        genere = Some(val.to_string());
+                    }
+                    break;
+                }
+            }
+            for (i, s) in all_text.iter().enumerate() {
+                let trimmed = s.trim();
+                let label = trimmed.to_lowercase();
+                if label == "regia" {
+                    if let Some(next) = all_text.get(i + 1) {
+                        let val = next.trim();
+                        if !val.is_empty() && !val.to_lowercase().starts_with("cast") {
+                            regia = Some(val.to_string());
+                        }
+                    }
+                    break;
+                }
+                if label.starts_with("regia ") {
+                    let val = trimmed["Regia".len()..]
+                        .trim_matches(|c: char| c == ':' || c.is_whitespace());
+                    if !val.is_empty() {
+                        regia = Some(val.to_string());
+                    }
+                    break;
+                }
+            }
+            for (i, s) in all_text.iter().enumerate() {
+                let trimmed = s.trim();
+                let label = trimmed.to_lowercase();
+                if label == "cast" {
+                    if let Some(next) = all_text.get(i + 1) {
+                        let val = next.trim();
+                        if !val.is_empty() && val.len() > 2 {
+                            cast_line = Some(val.to_string());
+                        }
+                    }
+                    break;
+                }
+                if label.starts_with("cast") && trimmed.len() > 4 {
+                    let after = trimmed["Cast".len()..]
+                        .trim_start_matches(|c: char| c == ':' || c.is_whitespace());
+                    if !after.is_empty() {
+                        cast_line = Some(after.to_string());
+                    }
+                    break;
+                }
+            }
+
+            // Synopsis: text between title and "Genere" (or first metadata).
             for s in all_text.iter().skip(title_idx + 1) {
                 let lower = s.to_lowercase();
-
-                // Stop if we hit "Programmazione e orari"
                 if lower.contains("programmazione e orari") {
                     break;
                 }
-
-                // Metadata headings: Genere / Regia / Cast
-                if lower.starts_with("genere ")
-                    || lower.starts_with("regia ")
-                    || lower.starts_with("cast")
+                if s.trim().to_lowercase() == "genere"
+                    || s.trim().to_lowercase() == "regia"
+                    || s.trim().to_lowercase() == "cast"
+                    || s.trim().to_lowercase().starts_with("genere ")
+                    || s.trim().to_lowercase().starts_with("regia ")
+                    || s.trim().to_lowercase().starts_with("cast ")
                 {
-                    if lower.starts_with("genere ") {
-                        genere = Some(
-                            s["Genere".len()..]
-                                .trim_matches(|c: char| c == ':' || c.is_whitespace())
-                                .to_string(),
-                        );
-                    } else if lower.starts_with("regia ") {
-                        regia = Some(
-                            s["Regia".len()..]
-                                .trim_matches(|c: char| c == ':' || c.is_whitespace())
-                                .to_string(),
-                        );
-                    } else {
-                        // Handle both "Cast " and "Cast  Foo..."
-                        let after = s.trim_start_matches("Cast").trim_start_matches(':').trim();
-                        if !after.is_empty() {
-                            cast_line = Some(after.to_string());
-                        }
-                    }
-                    continue;
+                    break;
                 }
-
-                // Anything between title and metadata headings is likely synopsis.
                 synopsis_lines.push(s.clone());
             }
 
@@ -298,7 +373,10 @@ impl CinemaScraper for CinemazeroScraper {
                         }
                         entry.push(' ');
                         entry.push_str(time);
-                        showtimes.push(entry);
+                        // Skip false positives from synopsis (e.g. "2025 In secolare:")
+                        if !entry.to_lowercase().contains("secolare") {
+                            showtimes.push(entry);
+                        }
                     }
                 }
             }
@@ -308,7 +386,7 @@ impl CinemaScraper for CinemazeroScraper {
                 url,
                 poster_url,
                 cast,
-                release_date: None,
+                release_date,
                 running_time,
                 synopsis,
                 showtimes: if showtimes.is_empty() {

@@ -251,9 +251,9 @@ impl CinemaScraper for PortoAstraScraper {
             // Times are associated with the most recently seen day; when we see a new day we flush the previous day's times.
             let showtimes = {
                 let orari_start = all_text.iter().position(|l| l.contains("ORARI"));
-                let orari_end = all_text.iter().position(|l| {
-                    l.contains("ALTRI FILM") || l.contains("Articoli correlati")
-                });
+                let orari_end = all_text
+                    .iter()
+                    .position(|l| l.contains("ALTRI FILM") || l.contains("Articoli correlati"));
                 let start = orari_start.unwrap_or(0);
                 let end = orari_end.unwrap_or(all_text.len());
                 let orari_slice = &all_text[start..end];

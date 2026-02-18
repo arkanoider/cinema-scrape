@@ -79,7 +79,11 @@ impl CinemaScraper for NewBevScraper {
 
             let poster_url = poster_from_page.or(program.poster_url);
             let cast = if cast.is_empty() { None } else { Some(cast) };
-            let synopsis = if synopsis.is_empty() { None } else { Some(synopsis) };
+            let synopsis = if synopsis.is_empty() {
+                None
+            } else {
+                Some(synopsis)
+            };
 
             films.push(Film {
                 title: program.title,
@@ -206,12 +210,7 @@ fn parse_schedule(html: &str) -> Result<Vec<ScheduleEntry>, Box<dyn std::error::
 async fn fetch_program_page(
     client: &Client,
     url: &str,
-) -> (
-    String,
-    String,
-    Option<u32>,
-    Option<String>,
-) {
+) -> (String, String, Option<u32>, Option<String>) {
     let resp = match client
         .get(url)
         .header(header::USER_AGENT, USER_AGENT)
