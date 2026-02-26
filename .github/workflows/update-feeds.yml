@@ -14,7 +14,9 @@ on:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    # Use self-hosted runner so scraping comes from your IP
+    # Make sure your runner has the labels: self-hosted, linux, cinema-scrape
+    runs-on: [self-hosted, linux, cinema-scrape]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
