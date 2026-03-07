@@ -3,6 +3,7 @@ mod cinema_edera;
 mod cinema_padova;
 mod cinema_trieste_scraper;
 mod cinemazero;
+mod cineplex_moderno;
 mod cinergia_conegliano;
 mod enrico_pizzuti;
 mod new_bev;
@@ -17,6 +18,7 @@ use cinema_padova::FeedPadovaScraper;
 use cinema_scrape::{CinemaScraper, Film, generate_rss, generate_rss_merged};
 use cinema_trieste_scraper::CinemaTriesteScraper;
 use cinemazero::CinemazeroScraper;
+use cineplex_moderno::CineplexModernoScraper;
 use cinergia_conegliano::CinergiaConeglianoScraper;
 use clap::{Parser, ValueEnum};
 use enrico_pizzuti::EnricoPizzutiScraper;
@@ -156,6 +158,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             FeedPadovaScraper::new("https://www.cinemarex.it/programmazione".to_string());
         let porto_astra_scraper =
             PortoAstraScraper::new("https://portoastra.it/questa-settimana/".to_string());
+        let cineplex_moderno_scraper =
+            CineplexModernoScraper::new("https://pv.cineplexmoderno.18tickets.it".to_string());
 
         println!("\n=== Fetching from Cinema Rex Padova ===\n");
         let padova_films = match padova_scraper.fetch_films(&client).await {
@@ -174,13 +178,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or_default();
         print_films(&porto_astra_films);
 
+        println!("\n=== Fetching from Cineplex Moderno Due Carrare Padova ===\n");
+        let cineplex_moderno_films = cineplex_moderno_scraper
+            .fetch_films(&client)
+            .await
+            .unwrap_or_default();
+        print_films(&cineplex_moderno_films);
+
         let padova_rss_xml = generate_rss_merged(
             "Film in programmazione a Padova",
             "https://portoastra.it/questa-settimana/",
-            "Programmazione Cinema Rex Padova e Cinema Porto Astra.",
+            "Programmazione Cinema Rex Padova, Cinema Porto Astra e Cineplex Moderno Due Carrare.",
             &[
                 ("Cinema Rex Padova", padova_films.as_slice()),
                 ("Cinema Porto Astra", porto_astra_films.as_slice()),
+                (
+                    "Cineplex Moderno Due Carrare",
+                    cineplex_moderno_films.as_slice(),
+                ),
             ],
         )?;
         let padova_feed_path = padova_scraper.rss_filename();
