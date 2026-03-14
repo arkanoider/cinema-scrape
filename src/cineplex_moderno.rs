@@ -48,10 +48,10 @@ fn extract_film_ids(document: &Html) -> Vec<String> {
     let link_sel = Selector::parse("a[href*=\"/film/\"]").unwrap_or_else(|_| unreachable!());
     let mut ids = HashSet::new();
 
-    if let Ok(movie_list_sel) = Selector::parse("#movie-list") {
-        if let Some(container) = document.select(&movie_list_sel).next() {
-            collect_film_ids_from_links(&mut ids, container.select(&link_sel));
-        }
+    if let Ok(movie_list_sel) = Selector::parse("#movie-list")
+        && let Some(container) = document.select(&movie_list_sel).next()
+    {
+        collect_film_ids_from_links(&mut ids, container.select(&link_sel));
     }
     if ids.is_empty() {
         collect_film_ids_from_links(&mut ids, document.select(&link_sel));

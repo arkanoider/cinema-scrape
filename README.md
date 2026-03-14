@@ -24,7 +24,7 @@ So I built this. A simple scraper that monitors local cinemas -- the ones that s
 | Feed | Cinemas |
 |------|---------|
 | **multisala.xml** | The Space Cinema (Silea), Cinema Multisala Edera, Cinema Multisala Manzoni, Cinergia Conegliano, Cinemazero Pordenone |
-| **padova.xml** | Cinema Rex Padova, Cinema Porto Astra |
+| **padova.xml** | Cinema Rex Padova, Cinema Porto Astra, Multi Astra, Cineplex Moderno |
 | **trieste.xml** | Cinema Ariston Trieste (La Cappella Underground) |
 | **rassegne.xml** | Rassegne from Cinema Cristallo Oderzo, Cinema Edera, Circolo Enrico Pizzuti |
 | **berlinale.xml** | Berlinale (Berlin International Film Festival) |

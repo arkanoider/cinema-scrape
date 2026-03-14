@@ -263,11 +263,11 @@ impl CinemaScraper for PortoAstraScraper {
                 for line in orari_slice {
                     if is_day_line(line) {
                         let day_clean = line.trim().trim_matches('*').trim().to_string();
-                        if let Some(ref d) = last_day {
-                            if !time_buf.is_empty() {
-                                showtimes_vec.push(format!("{} ore {}", d, time_buf.join(", ")));
-                                time_buf.clear();
-                            }
+                        if let Some(ref d) = last_day
+                            && !time_buf.is_empty()
+                        {
+                            showtimes_vec.push(format!("{} ore {}", d, time_buf.join(", ")));
+                            time_buf.clear();
                         }
                         last_day = Some(day_clean);
                     } else {
@@ -276,10 +276,10 @@ impl CinemaScraper for PortoAstraScraper {
                         }
                     }
                 }
-                if let Some(d) = last_day {
-                    if !time_buf.is_empty() {
-                        showtimes_vec.push(format!("{} ore {}", d, time_buf.join(", ")));
-                    }
+                if let Some(d) = last_day
+                    && !time_buf.is_empty()
+                {
+                    showtimes_vec.push(format!("{} ore {}", d, time_buf.join(", ")));
                 }
                 if showtimes_vec.is_empty() {
                     None

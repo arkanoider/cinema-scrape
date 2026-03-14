@@ -6,6 +6,7 @@ mod cinemazero;
 mod cineplex_moderno;
 mod cinergia_conegliano;
 mod enrico_pizzuti;
+mod multi_astra;
 mod new_bev;
 mod porto_astra;
 mod rassegne_cristallo;
@@ -22,6 +23,7 @@ use cineplex_moderno::CineplexModernoScraper;
 use cinergia_conegliano::CinergiaConeglianoScraper;
 use clap::{Parser, ValueEnum};
 use enrico_pizzuti::EnricoPizzutiScraper;
+use multi_astra::MultiAstraScraper;
 use new_bev::NewBevScraper;
 use porto_astra::PortoAstraScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
@@ -160,6 +162,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             PortoAstraScraper::new("https://portoastra.it/questa-settimana/".to_string());
         let cineplex_moderno_scraper =
             CineplexModernoScraper::new("https://pv.cineplexmoderno.18tickets.it".to_string());
+        let multi_astra_scraper =
+            MultiAstraScraper::new("https://multiastra.it/film-della-settimana/".to_string());
 
         println!("\n=== Fetching from Cinema Rex Padova ===\n");
         let padova_films = match padova_scraper.fetch_films(&client).await {
@@ -185,10 +189,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or_default();
         print_films(&cineplex_moderno_films);
 
+        println!("\n=== Fetching from Multi Astra Padova ===\n");
+        let multi_astra_films = multi_astra_scraper
+            .fetch_films(&client)
+            .await
+            .unwrap_or_default();
+        print_films(&multi_astra_films);
+
         let padova_rss_xml = generate_rss_merged(
             "Film in programmazione a Padova",
             "https://portoastra.it/questa-settimana/",
-            "Programmazione Cinema Rex Padova, Cinema Porto Astra e Cineplex Moderno Due Carrare.",
+            "Programmazione Cinema Rex Padova, Cinema Porto Astra, Cineplex Moderno Due Carrare e Multi Astra.",
             &[
                 ("Cinema Rex Padova", padova_films.as_slice()),
                 ("Cinema Porto Astra", porto_astra_films.as_slice()),
@@ -196,6 +207,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "Cineplex Moderno Due Carrare",
                     cineplex_moderno_films.as_slice(),
                 ),
+                ("Multi Astra Padova", multi_astra_films.as_slice()),
             ],
         )?;
         let padova_feed_path = padova_scraper.rss_filename();
