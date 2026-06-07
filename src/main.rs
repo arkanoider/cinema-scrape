@@ -12,6 +12,7 @@ mod porto_astra;
 mod rassegne_cristallo;
 mod rassegne_edera;
 mod space_cinema;
+mod vista_theatre;
 
 use berlinale::BerlinaleScraper;
 use cinema_edera::CinemaEderaScraper;
@@ -29,6 +30,7 @@ use porto_astra::PortoAstraScraper;
 use rassegne_cristallo::RassegneScraperCristallo;
 use rassegne_edera::RassegneScraperEdera;
 use space_cinema::SpaceCinemaScraper;
+use vista_theatre::VistaTheatreScraper;
 use std::fs;
 
 /// Which single feed to generate. If omitted, all feeds are generated.
@@ -41,6 +43,7 @@ enum Feed {
     Rassegne,
     Berlinale,
     Tarantino,
+    VistaTheatre,
 }
 
 #[derive(Parser)]
@@ -327,6 +330,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let new_bev_feed_path = new_bev_scraper.rss_filename();
         fs::write(&new_bev_feed_path, new_bev_rss_xml)?;
         println!("✓ New Beverly RSS feed saved to: {}", new_bev_feed_path);
+    }
+
+    // --- vista theatre ---
+    if feed_filter.is_none() || feed_filter.as_ref() == Some(&Feed::VistaTheatre) {
+        let vista_scraper =
+            VistaTheatreScraper::new("https://www.vistatheaterhollywood.com/".to_string());
+
+        println!("\n=== Fetching from Vista Theater Hollywood ===\n");
+        let vista_films = vista_scraper
+            .fetch_films(&client)
+            .await
+            .unwrap_or_default();
+        print_films(&vista_films);
+
+        let vista_rss_xml = generate_rss(
+            &vista_films,
+            "Vista Theater Hollywood",
+            "https://www.vistatheaterhollywood.com/",
+            "Now playing at Vista Theater Hollywood — 35mm and 70mm presentations.",
+        )?;
+        let vista_feed_path = vista_scraper.rss_filename();
+        fs::write(&vista_feed_path, vista_rss_xml)?;
+        println!("✓ Vista Theatre RSS feed saved to: {}", vista_feed_path);
     }
 
     Ok(())

@@ -16,6 +16,7 @@ jobs:
   update:
     # Use self-hosted runner so scraping comes from your IP
     # Make sure your runner has the labels: self-hosted, linux, cinema-scrape
+    if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, cinema-scrape]
     steps:
       - name: Checkout
@@ -45,5 +46,6 @@ jobs:
           git add docs/feeds/padova.xml
           git add docs/feeds/berlinale.xml
           git add docs/feeds/tarantino.xml
+          git add docs/feeds/vista_theatre.xml
           
           git diff --staged --quiet || (git commit -m "chore: update RSS feed [skip ci]" && git push)
