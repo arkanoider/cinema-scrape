@@ -14,7 +14,7 @@ So I built this. A simple scraper that monitors local cinemas -- the ones that s
 
 ## What it does
 
-- **Scrapes** film schedules from 13 cinemas and festivals (mostly in northeast Italy, plus a couple of international gems)
+- **Scrapes** film schedules from 14 cinemas and festivals (mostly in northeast Italy, plus a couple of international gems)
 - **Generates RSS feeds** with full film details: title, synopsis, cast, poster, showtimes
 - **Auto-updates daily** at 06:00 UTC via GitHub Actions
 - **Serves feeds** through GitHub Pages -- subscribe once, stay updated forever
@@ -29,6 +29,7 @@ So I built this. A simple scraper that monitors local cinemas -- the ones that s
 | **rassegne.xml** | Rassegne from Cinema Cristallo Oderzo, Cinema Edera, Circolo Enrico Pizzuti |
 | **berlinale.xml** | Berlinale (Berlin International Film Festival) |
 | **tarantino.xml** | The New Beverly Cinema (Quentin Tarantino's revival theater, Los Angeles) |
+| **vista_theatre.xml** | Vista Theater Hollywood (Los Angeles) |
 
 See [FEEDS.md](FEEDS.md) for full feed URLs and setup instructions.
 
